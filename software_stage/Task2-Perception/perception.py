@@ -60,9 +60,18 @@ class RoboGambit_Perception:
         3. Return transformed world coordinates.
         """
 
-        # Write your code here
+        if self.H_matrix is None:
+            return None, None
+        
 
-        return None, None
+        pixel_point = np.array([[[pixel_x, pixel_y]]], dtype=np.float32)
+
+        world_point = cv2.perspectiveTransform(pixel_point, self.H_matrix)
+
+        wx = world_point[0][0][0]
+        wy = world_point[0][0][1]
+
+        return wx, wy
 
 
     # PARTICIPANTS MODIFY THIS FUNCTION
@@ -83,25 +92,60 @@ class RoboGambit_Perception:
 
         # TODO: Detect ArUco markers (uncomment or write your own code)
 
-        # corners, ids, rejected = self.detector.detectMarkers(gray_image)
-        # if ids is not None:
-        #     cv2.aruco.drawDetectedMarkers(undistorted_image,corners,ids)
+        corners, ids, rejected = self.detector.detectMarkers(gray_image)
 
+        if ids is None:
+            print("No markers detected")
+            return
+        
+        
+        cv2.aruco.drawDetectedMarkers(undistorted_image,corners,ids)
+
+
+        
 
         # TODO: Extract corner marker pixels
 
         # Identify markers with IDs 21–24
         # Store their pixel centers
+        for i, marker_id in enumerate(ids.flatten()):
+            marker_corners = corners[i][0]
+
+            cx = int(np.mean(marker_corners[:, 0]))
+            cy = int(np.mean(marker_corners[:, 1]))
+
+            if marker_id in [21, 22, 23, 24]:
+                self.corner_pixels[marker_id] = (cx, cy)
 
         # TODO: Build pixel and world matrices
-
+        
         # Use detected corner markers and
         # known world coordinates
 
+        #resetting
+        self.pixel_matrix = []
+        self.world_matrix = []
+        
+        for marker_id in [21, 22, 23, 24]:
+            if marker_id in self.corner_pixels:
+                px, py = self.corner_pixels[marker_id]
+                wx, wy = self.corner_world[marker_id]
+
+                self.pixel_matrix.append([px, py])
+                self.world_matrix.append([wx, wy])
+        
+        self.pixel_matrix = np.array(self.pixel_matrix, dtype=np.float32)
+        self.world_matrix = np.array(self.world_matrix, dtype=np.float32)
+
+
         # TODO: Compute homography matrix
 
-        # Use:
-        # cv2.findHomography()
+        if len(self.pixel_matrix) == 4:
+
+            self.H_matrix, _ = cv2.findHomography(
+                self.pixel_matrix,
+                self.world_matrix
+            )
 
         # TODO: Convert piece markers to world coordinates
 
@@ -109,6 +153,20 @@ class RoboGambit_Perception:
         # 1. Compute center pixel
         # 2. Convert to world using pixel_to_world()
         # 3. Call place_piece_on_board()
+
+        for i, marker_id in enumerate(ids.flatten()):
+
+            if 1 <= marker_id <= 10:
+
+                marker_corners = corners[i][0]
+
+                cx = np.mean(marker_corners[:,0])
+                cy = np.mean(marker_corners[:,1])
+
+                wx, wy = self.pixel_to_world(cx,cy)
+
+                if wx is not None:
+                    self.place_piece_on_board(marker_id, wx, wy)
 
         # Visualization (Do not modify)
         res = cv2.resize(undistorted_image, (1152,648))
@@ -129,9 +187,11 @@ class RoboGambit_Perception:
         square size = 100mm
         """
 
-        # Write your code here
+        col = int((300 - x_coord) / 100)
+        row = int((300 - y_coord) / 100)
 
-        pass
+        if 0 <= row < 6 and 0 <= col < 6:
+            self.board[row][col] = piece_id
 
 
     # DO NOT MODIFY THIS FUNCTION
