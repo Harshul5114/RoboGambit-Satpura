@@ -26,6 +26,7 @@ Move output format:  "<piece_id>:<source_cell>-><target_cell>"
 
 import numpy as np
 from typing import Optional
+from bitboard import *
 import sys 
 sys.setrecursionlimit(10**5)
 
@@ -47,6 +48,8 @@ BLACK_BISHOP = 8
 BLACK_QUEEN  = 9
 BLACK_KING   = 10
 
+KNIGHT_MOVES = [(-2,-1),(-2,1),(2,-1),(2,1),(-1,-2),(-1,2),(1,-2),(1,2)]
+
 WHITE_PIECES = {WHITE_PAWN, WHITE_KNIGHT, WHITE_BISHOP, WHITE_QUEEN, WHITE_KING}
 BLACK_PIECES = {BLACK_PAWN, BLACK_KNIGHT, BLACK_BISHOP, BLACK_QUEEN, BLACK_KING}
 
@@ -67,6 +70,8 @@ PIECE_VALUES = {
 # Column index → letter
 COL_TO_FILE = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 4: 'E', 5: 'F'}
 FILE_TO_COL = {v: k for k, v in COL_TO_FILE.items()}
+
+
 
 # ---------------------------------------------------------------------------
 # Coordinate helpers
@@ -127,8 +132,7 @@ def in_check(board: np.ndarray, role_white : bool):
             if in_bounds(board, rr, cc) and board[rr][cc] == 1:
                 return True
     #Knight attack
-    knight_offsets = [(-2,-1),(-2,1),(2,-1),(2,1),(-1,-2),(-1,2),(1,-2),(1,2)]
-    for dr, dc in knight_offsets:
+    for dr, dc in KNIGHT_MOVES:
         rr, cc = kr + dr, kc + dc
         if in_bounds(board, rr, cc):
             if role_white and board[rr][cc] == 7:
@@ -180,89 +184,155 @@ def in_check(board: np.ndarray, role_white : bool):
     return False
                     
 
-def get_pawn_moves(board: np.ndarray, row: int, col: int, piece: int, white_captured: list, black_captured: list):
-    """
-    White Pawns move downward (increasing row index).
-    Black Pawns move upward  (decreasing row index).
-    Captures are diagonal-forward.
-    
-    """
+def get_pawn_moves(board: np.ndarray, row: int, col: int, piece: int,
+                   white_captured: list, black_captured: list):
+
     moves = []
-    if(is_white(piece)):
-        new_board = board.copy()
-        if(in_bounds(board, row + 1, col)):
-            new_board[row + 1][col] = piece 
-        new_board[row][col] = 0
-        if(in_bounds(board, row + 1, col) and board[row + 1][col]==0 and not in_check(new_board, True)):
-            if(row == len(board)-2 and len(white_captured)!=0):
-                for new_piece in set(white_captured):
-                    moves.append((piece, row, col, row + 1, col, new_piece))
-            elif(row != len(board)-2):
-                moves.append((piece, row, col, row + 1, col, piece))
 
-        new_board = board.copy()
-        if(in_bounds(board, row + 1, col + 1)):
-            new_board[row + 1][col + 1] = piece 
-        new_board[row][col] = 0
-        if(in_bounds(board, row + 1, col + 1) and is_black(board[row + 1][col + 1]) and not in_check(new_board, True)):
-            if(row == len(board)-2 and len(white_captured)!=0):
-                for new_piece in set(white_captured):
-                    moves.append((piece, row, col, row + 1, col + 1, new_piece))
-            elif(row != len(board)-2):
-                moves.append((piece, row, col, row + 1, col + 1, piece))
-        
-        new_board = board.copy()
-        if(in_bounds(board, row + 1, col - 1)):
-            new_board[row + 1][col - 1] = piece 
-        new_board[row][col] = 0
-        if(in_bounds(board, row + 1, col - 1) and is_black(board[row + 1][col - 1]) and not in_check(new_board, True)):
-            if(row == len(board)-2 and len(white_captured)!=0):
-                for new_piece in set(white_captured):
-                    moves.append((piece, row, col, row + 1, col - 1, new_piece))
-            elif(row != len(board)-2):
-                moves.append((piece, row, col, row + 1, col - 1, piece))
+    if is_white(piece):
 
-    elif(is_black(piece)):
-        new_board = board.copy()
-        if(in_bounds(board, row - 1, col)):
-            new_board[row - 1][col] = piece 
-        new_board[row][col] = 0
-        if(in_bounds(board, row - 1, col) and board[row - 1][col] == 0 and not in_check(new_board, False)):
-            if(row == 1 and len(black_captured)!=0):
-                for new_piece in set(black_captured):
-                    moves.append((piece, row, col, row - 1, col, new_piece))
-            elif(row != 1):
-                moves.append((piece, row, col, row - 1, col, piece))
+        # forward move
+        r = row + 1
+        c = col
 
-        new_board = board.copy()
-        if(in_bounds(board, row - 1, col + 1)):
-            new_board[row - 1][col + 1] = piece 
-        new_board[row][col] = 0
-        if(in_bounds(board, row - 1, col + 1) and is_white(board[row - 1][col + 1]) and not in_check(new_board, False)):
-            if(row == 1 and len(black_captured)!=0):
-                for new_piece in set(black_captured):
-                    moves.append((piece, row, col, row - 1, col + 1, new_piece))
-            elif(row != 1):
-                moves.append((piece, row, col, row - 1, col + 1, piece))
+        if in_bounds(board, r, c) and board[r][c] == 0:
 
-        new_board = board.copy()
-        if(in_bounds(board, row - 1, col - 1)):
-            new_board[row - 1][col - 1] = piece 
-        new_board[row][col] = 0
-        if(in_bounds(board, row - 1, col - 1) and is_white(board[row - 1][col - 1]) and not in_check(new_board, False)):
-            if(row == 1 and len(black_captured)!=0):
-                for new_piece in set(black_captured):
-                    moves.append((piece, row, col, row - 1, col - 1, new_piece))
-            elif(row != 1):
-                moves.append((piece, row, col, row - 1, col - 1, piece))
+            board[row][col] = 0
+            board[r][c] = piece
+
+            if not in_check(board, True):
+
+                if row == len(board) - 2 and len(white_captured) != 0:
+                    for new_piece in set(white_captured):
+                        moves.append((piece, row, col, r, c, new_piece))
+                else:
+                    moves.append((piece, row, col, r, c, piece))
+
+            board[row][col] = piece
+            board[r][c] = 0
+
+
+        # capture right
+        r = row + 1
+        c = col + 1
+
+        if in_bounds(board, r, c) and is_black(board[r][c]):
+
+            captured = board[r][c]
+
+            board[row][col] = 0
+            board[r][c] = piece
+
+            if not in_check(board, True):
+
+                if row == len(board) - 2 and len(white_captured) != 0:
+                    for new_piece in set(white_captured):
+                        moves.append((piece, row, col, r, c, new_piece))
+                else:
+                    moves.append((piece, row, col, r, c, piece))
+
+            board[row][col] = piece
+            board[r][c] = captured
+
+
+        # capture left
+        r = row + 1
+        c = col - 1
+
+        if in_bounds(board, r, c) and is_black(board[r][c]):
+
+            captured = board[r][c]
+
+            board[row][col] = 0
+            board[r][c] = piece
+
+            if not in_check(board, True):
+
+                if row == len(board) - 2 and len(white_captured) != 0:
+                    for new_piece in set(white_captured):
+                        moves.append((piece, row, col, r, c, new_piece))
+                else:
+                    moves.append((piece, row, col, r, c, piece))
+
+            board[row][col] = piece
+            board[r][c] = captured
+
+
+    else:  # black pawn
+
+        # forward move
+        r = row - 1
+        c = col
+
+        if in_bounds(board, r, c) and board[r][c] == 0:
+
+            board[row][col] = 0
+            board[r][c] = piece
+
+            if not in_check(board, False):
+
+                if row == 1 and len(black_captured) != 0:
+                    for new_piece in set(black_captured):
+                        moves.append((piece, row, col, r, c, new_piece))
+                else:
+                    moves.append((piece, row, col, r, c, piece))
+
+            board[row][col] = piece
+            board[r][c] = 0
+
+
+        # capture right
+        r = row - 1
+        c = col + 1
+
+        if in_bounds(board, r, c) and is_white(board[r][c]):
+
+            captured = board[r][c]
+
+            board[row][col] = 0
+            board[r][c] = piece
+
+            if not in_check(board, False):
+
+                if row == 1 and len(black_captured) != 0:
+                    for new_piece in set(black_captured):
+                        moves.append((piece, row, col, r, c, new_piece))
+                else:
+                    moves.append((piece, row, col, r, c, piece))
+
+            board[row][col] = piece
+            board[r][c] = captured
+
+
+        # capture left
+        r = row - 1
+        c = col - 1
+
+        if in_bounds(board, r, c) and is_white(board[r][c]):
+
+            captured = board[r][c]
+
+            board[row][col] = 0
+            board[r][c] = piece
+
+            if not in_check(board, False):
+
+                if row == 1 and len(black_captured) != 0:
+                    for new_piece in set(black_captured):
+                        moves.append((piece, row, col, r, c, new_piece))
+                else:
+                    moves.append((piece, row, col, r, c, piece))
+
+            board[row][col] = piece
+            board[r][c] = captured
+
 
     return moves
 
-
 def get_knight_moves(board: np.ndarray, row: int, col: int, piece: int):
     moves = []
-    dsts = [(2,1), (2,-1), (1,2), (1,-2), (-2,1), (-2,-1), (-1,2),(-1,-2)]
-    for dst in dsts:
+
+    for dst in KNIGHT_MOVES:
         new_board = board.copy()
         if(in_bounds(board, row + dst[0], col + dst[1])):
             new_board[row + dst[0]][col + dst[1]] = piece 
@@ -270,7 +340,6 @@ def get_knight_moves(board: np.ndarray, row: int, col: int, piece: int):
         if(in_bounds(board, row + dst[0], col + dst[1]) and not same_side(piece, board[row + dst[0]][col + dst[1]]) and not in_check(new_board, is_white(piece))):
             moves.append((piece, row, col, row + dst[0], col + dst[1], piece))
     return moves
-
 
 def get_sliding_moves(board, row, col, piece, directions):
     moves = []
@@ -295,16 +364,13 @@ def get_sliding_moves(board, row, col, piece, directions):
 
     return moves
 
-
 def get_bishop_moves(board: np.ndarray, row: int, col: int, piece: int):
     diagonals = [(-1,-1),(-1,1),(1,-1),(1,1)]
     return get_sliding_moves(board, row, col, piece, diagonals)
 
-
 def get_queen_moves(board: np.ndarray, row: int, col: int, piece: int):
     all_dirs = [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
     return get_sliding_moves(board, row, col, piece, all_dirs)
-
 
 def get_king_moves(board: np.ndarray, row: int, col: int, piece: int):
     moves = []
@@ -353,6 +419,23 @@ def get_all_moves(board: np.ndarray, playing_white: bool, white_captured: list, 
     
     return moves
 
+def score_move(board, move):
+
+    piece, sr, sc, dr, dc, new_piece = move
+
+    target = board[dr][dc]
+
+    score = 0
+
+    # capture priority
+    if target != 0:
+        score += 10 * abs(PIECE_VALUES.get(target, 0)) - abs(PIECE_VALUES.get(piece, 0))
+
+    # promotion bonus
+    if new_piece != piece:
+        score += 800
+
+    return score
 # ---------------------------------------------------------------------------
 # Board evaluation heuristic  (TODO: tune weights / add positional tables)
 # ---------------------------------------------------------------------------
@@ -386,18 +469,34 @@ def evaluate(board: np.ndarray) -> float:
 
 # ---------------------------------------------------------------------------
 
-def apply_move(board: np.ndarray, piece, src_row, src_col, dst_row, dst_col, new_piece, white_captured, black_captured) -> np.ndarray:
-    new_board = board.copy()
-    replaced_piece = board[dst_row][dst_col]
-    new_board[src_row][src_col] = EMPTY
-    if(1 <= replaced_piece <= 5):
-        white_captured.append(replaced_piece)
-    elif(6 <= replaced_piece <= 10):
-        black_captured.append(replaced_piece)
-    new_board[dst_row][dst_col] = new_piece
-    return new_board
 
+def make_move(board, move, white_captured, black_captured):
 
+    piece, sr, sc, dr, dc, new_piece = move
+
+    captured = board[dr][dc]
+
+    board[sr][sc] = 0
+    board[dr][dc] = new_piece
+
+    if 1 <= captured <= 5:
+        white_captured.append(captured)
+    elif 6 <= captured <= 10:
+        black_captured.append(captured)
+
+    return captured
+
+def unmake_move(board, move, captured, white_captured, black_captured):
+
+    piece, sr, sc, dr, dc, new_piece = move
+
+    board[sr][sc] = piece
+    board[dr][dc] = captured
+
+    if 1 <= captured <= 5:
+        white_captured.pop()
+    elif 6 <= captured <= 10:
+        black_captured.pop()
 
 # ---------------------------------------------------------------------------
 # Format move string
@@ -426,18 +525,20 @@ def minimax(board, alpha, beta, depth, playing_white, white_captured, black_capt
         new_board = board.copy()
         new_board[king_row][king_col] = 0
         return evaluate(new_board)*depth
+    
     elif(depth == 0 or is_terminal(board, playing_white, white_captured, black_captured) == 2):
         return evaluate(board)   
     
     if playing_white:
         max_eval = float('-inf')
+
+        moves = get_all_moves(board, playing_white, white_captured, black_captured)
+        moves.sort(key=lambda move: score_move(board, move), reverse=True)
         
-        for move in get_all_moves(board, playing_white, white_captured, black_captured):
-            temp_white_captured = list(white_captured)
-            temp_black_captured = list(black_captured)
-            new_board = apply_move(board, move[0], move[1], move[2], move[3], move[4], move[5], temp_white_captured, temp_black_captured)
-            
-            eval = minimax(new_board, alpha, beta, depth - 1, not playing_white, temp_white_captured, temp_black_captured)
+        for move in moves:
+            captured = make_move(board, move, white_captured, black_captured)
+            eval = minimax(board, alpha, beta, depth - 1, not playing_white, white_captured, black_captured)
+            unmake_move(board, move, captured, white_captured, black_captured)
             
             max_eval = max(max_eval, eval)
             alpha = max(alpha, eval)
@@ -451,14 +552,15 @@ def minimax(board, alpha, beta, depth, playing_white, white_captured, black_capt
     
     else:
         min_eval = float('inf')
+
+        moves = get_all_moves(board, playing_white, white_captured, black_captured)
+        moves.sort(key=lambda move: score_move(board, move), reverse=True)
         
-        for move in get_all_moves(board, playing_white, white_captured, black_captured):
-            temp_white_captured = list(white_captured)
-            temp_black_captured = list(black_captured)
-            new_board = apply_move(board, move[0], move[1], move[2], move[3], move[4], move[5], temp_white_captured, temp_black_captured)
-            
-            eval = minimax(new_board, alpha, beta, depth - 1, not playing_white, temp_white_captured, temp_black_captured)
-            
+        for move in moves:
+            captured = make_move(board, move, white_captured, black_captured)
+            eval = minimax(board, alpha, beta, depth - 1, not playing_white, white_captured, black_captured)
+            unmake_move(board, move, captured, white_captured, black_captured)
+
             min_eval = min(min_eval, eval)
             beta = min(beta, eval)
             
@@ -467,11 +569,14 @@ def minimax(board, alpha, beta, depth, playing_white, white_captured, black_capt
                 break
         
         return min_eval
+    
+
 
 # we need a mechanism to take into account stalemate conditions
 # right now the only mechanism is checkmate so we need to disallow any moves that result in a check for the player
 # doing this would make the possible moves for a state of the board to be empty in the case of a checkmate or stalemate
 # then we check if the king is in check and remove it and evaluate the board and if it is not then we evaluate the board as it is
+
 
 def get_best_move(board: np.ndarray, playing_white: bool = True) -> Optional[str]:
     """
@@ -488,6 +593,9 @@ def get_best_move(board: np.ndarray, playing_white: bool = True) -> Optional[str
     Move string in the format '<piece_id>:<src_cell>-><dst_cell>', or
     None if no legal moves are available.
     """
+
+    # bb = board_to_bitboards(board)
+
     if(playing_white):
         best_value = float('-inf')
     else:
@@ -496,13 +604,18 @@ def get_best_move(board: np.ndarray, playing_white: bool = True) -> Optional[str
     
     alpha = float('-inf')
     beta = float('inf')
-    
-    for move in get_all_moves(board, playing_white, [], []):
-        temp_white_captured = []
-        temp_black_captured = []
-        new_board = apply_move(board, move[0], move[1], move[2], move[3], move[4], move[5], temp_white_captured, temp_black_captured)
+
+    temp_white_captured = []
+    temp_black_captured = []
+    all_moves = get_all_moves(board, playing_white, temp_white_captured, temp_black_captured)
+    all_moves.sort(key=lambda move: score_move(board, move), reverse=playing_white)  # Sort moves by heuristic score
+    for move in all_moves:
         
-        value = minimax(new_board, alpha, beta, 4, not playing_white, temp_white_captured, temp_black_captured)
+        captured = make_move(board, move, temp_white_captured, temp_black_captured)
+        
+        value = minimax(board, alpha, beta, 4, not playing_white, temp_white_captured, temp_black_captured)
+
+        unmake_move(board, move, captured, temp_white_captured, temp_black_captured)
         
         if (playing_white and value > best_value) or (not playing_white and value < best_value):
             best_value = value

@@ -90,7 +90,7 @@ class RoboGambit_Perception:
         # Preprocess image (Do not modify)
         undistorted_image, gray_image = self.prepare_image(image)
 
-        # TODO: Detect ArUco markers (uncomment or write your own code)
+    
 
         corners, ids, rejected = self.detector.detectMarkers(gray_image)
 
@@ -101,10 +101,6 @@ class RoboGambit_Perception:
         
         cv2.aruco.drawDetectedMarkers(undistorted_image,corners,ids)
 
-
-        
-
-        # TODO: Extract corner marker pixels
 
         # Identify markers with IDs 21–24
         # Store their pixel centers
@@ -117,7 +113,6 @@ class RoboGambit_Perception:
             if marker_id in [21, 22, 23, 24]:
                 self.corner_pixels[marker_id] = (cx, cy)
 
-        # TODO: Build pixel and world matrices
         
         # Use detected corner markers and
         # known world coordinates
@@ -138,16 +133,12 @@ class RoboGambit_Perception:
         self.world_matrix = np.array(self.world_matrix, dtype=np.float32)
 
 
-        # TODO: Compute homography matrix
-
         if len(self.pixel_matrix) == 4:
 
             self.H_matrix, _ = cv2.findHomography(
                 self.pixel_matrix,
                 self.world_matrix
             )
-
-        # TODO: Convert piece markers to world coordinates
 
         # For each marker with ID 1–10:
         # 1. Compute center pixel

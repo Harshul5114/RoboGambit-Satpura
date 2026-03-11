@@ -145,12 +145,18 @@ def run_ui(board):
 
     running = True
 
+    if DEBUG:
+        times = []
+
     while running:
 
         for event in pygame.event.get():
 
             if event.type == pygame.QUIT:
                 running=False
+
+            # if is_terminal(board,True):
+            #     running=False
 
             if event.type == pygame.MOUSEBUTTONDOWN and not thinking:
 
@@ -172,7 +178,7 @@ def run_ui(board):
                         legal=[m for m in moves if m[1]==row and m[2]==col]
 
                 else:
-
+                        
                     moved=False
 
                     for m in legal:
@@ -205,16 +211,15 @@ def run_ui(board):
 
             pygame.display.flip()
 
+            st = time.time()
             move = get_best_move(board,playing_white=False)
+            et = time.time()
 
             if DEBUG:
                 print("Engine move:",move)
-                # if is_terminal(board):
-                #     print("Terminal position reached!")
-                #     if is_terminal(board) == 1:
-                #         print("Checkmate!")
-                #     elif is_terminal(board) == 2:
-                #         print("Stalemate!")
+                print("Time taken: {:.2f} seconds".format(et-st))
+                times.append(et-st)
+
                         
 
             apply_engine_move(board,move)
@@ -222,6 +227,29 @@ def run_ui(board):
             thinking=False
             playing_white=True
 
-        pygame.time.wait(10)
+        #if terminal, print message and wait a bit before closing
+        #print who won also based on value returned by is_terminal() (1:checkmate, 2:stalemate, else 0)
+        #print who won based on playing_white variable (if True, player is white, else black)
+        # if is_terminal(board,True):
+        #     result = is_terminal(board,True)
+
+        #     if result == 1:
+        #         if playing_white:
+        #             msg = "Checkmate! Black wins."
+        #         else:
+        #             msg = "Checkmate! White wins."
+        #     elif result == 2:
+        #         msg = "Stalemate! It's a draw."
+        #     else:
+        #         msg = "Game over!"
+
+        #     print(msg)
+
+        #     pygame.time.wait(3000)
+
+    if DEBUG:
+        print("Game over!")
+        print("Total moves played:",len(times))
+        print("Average engine move time: {:.2f} seconds".format(sum(times)/len(times) if times else 0))
 
     pygame.quit()
