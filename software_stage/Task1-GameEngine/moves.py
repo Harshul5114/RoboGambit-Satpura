@@ -3,188 +3,248 @@ from utils import *
 from constants import *
 from bitboard import *
 
-def get_pawn_moves(board, row: int, col: int, piece: int,
-                   white_captured: list, black_captured: list, bb: Bitboards|None = None):
-   
-    moves = []
+def make_temp_move(bb, piece, src_idx, dst_idx, new_piece):
+    src_bit = 1 << src_idx
+    dst_bit = 1 << dst_idx
 
-    # helper lambdas
-    idx = bb.rc_to_index(row, col)
-    src_bit = 1 << idx
+    # remove piece from source
+    bb.set_bb(piece, bb.get_bb(piece) & ~src_bit)
+
+    # capture if needed
+    for pid in range(1, 11):
+        pb = bb.get_bb(pid)
+        if pb & dst_bit:
+            bb.set_bb(pid, pb & ~dst_bit)
+
+    # add piece at destination
+    bb.set_bb(new_piece, bb.get_bb(new_piece) | dst_bit)
+
+
+def undo_temp_move(bb, piece, src_idx, dst_idx, captured_piece, new_piece):
+    src_bit = 1 << src_idx
+    dst_bit = 1 << dst_idx
+
+    bb.set_bb(new_piece, bb.get_bb(new_piece) & ~dst_bit)
+    bb.set_bb(piece, bb.get_bb(piece) | src_bit)
+
+    if captured_piece != 0:
+        bb.set_bb(captured_piece, bb.get_bb(captured_piece) | dst_bit)
+
+
+def get_pawn_moves(board, row, col, piece, white_captured, black_captured, bb):
+
+    moves = []
+    src_idx = bb.rc_to_index(row, col)
 
     if is_white(piece):
-        # single push target index
-        dst_idx = idx + BOARD_FILES
-        if 0 <= dst_idx < BOARD_SQ:
+
+        dst_idx = src_idx + BOARD_FILES
+
+        if dst_idx < BOARD_SQ:
+
             dst_bit = 1 << dst_idx
+
             if not (bb.all_occ() & dst_bit):
-                # update board array temporarily to test in_check exactly as original
-                # need to update the check function to take bitbooards instead of board
-                board[row][col] = 0
+
                 dr, dc = bb.index_to_rc(dst_idx)
-                captured_at_dst = board[dr][dc]
-                board[dr][dc] = piece
-                if not in_check(board, True):
-                    # promotion?
-                    if row == len(board) - 2 and len(white_captured) != 0:
-                        for new_piece in set(white_captured):
-                            if new_piece != piece:
-                                moves.append((piece, row, col, dr, dc, new_piece))
-                    elif row != len(board) - 2:
-                        moves.append((piece, row, col, dr, dc, piece))
-                # restore
-                board[row][col] = piece
-                board[dr][dc] = captured_at_dst
 
-        # capture right (r+1, c+1)
-        if (col + 1) < BOARD_FILES:
-            dr, dc = row + 1, col + 1
-            dst_idx = bb.rc_to_index(dr, dc)
-            dst_bit = 1 << dst_idx
-            if 0 <= dr < BOARD_RANKS and (bb.black_occ() & dst_bit):
-                captured = board[dr][dc]
-                board[row][col] = 0
-                board[dr][dc] = piece
-                if not in_check(board, True):
-                    if row == len(board) - 2 and len(white_captured) != 0:
-                        for new_piece in set(white_captured):
-                            if new_piece != piece:
-                                moves.append((piece, row, col, dr, dc, new_piece))
-                    elif row != len(board) - 2:
-                        moves.append((piece, row, col, dr, dc, piece))
-                board[row][col] = piece
-                board[dr][dc] = captured
+                captured_piece = 0
 
-        # capture left (r+1, c-1)
-        if (col - 1) >= 0:
-            dr, dc = row + 1, col - 1
-            dst_idx = bb.rc_to_index(dr, dc)
-            dst_bit = 1 << dst_idx
-            if 0 <= dr < BOARD_RANKS and (bb.black_occ() & dst_bit):
-                captured = board[dr][dc]
-                board[row][col] = 0
-                board[dr][dc] = piece
-                if not in_check(board, True):
-                    if row == len(board) - 2 and len(white_captured) != 0:
-                        for new_piece in set(white_captured):
-                            if new_piece != piece:
-                                moves.append((piece, row, col, dr, dc, new_piece))
-                    elif row != len(board) - 2:
+                new_piece = piece
+
+                if row == BOARD_RANKS - 2 and white_captured:
+
+                    for promo in set(white_captured):
+
+                        make_temp_move(bb, piece, src_idx, dst_idx, promo)
+
+                        if not in_check(bb, True):
+
+                            moves.append((piece, row, col, dr, dc, promo))
+
+                        undo_temp_move(bb, piece, src_idx, dst_idx, captured_piece, promo)
+
+                else:
+
+                    make_temp_move(bb, piece, src_idx, dst_idx, piece)
+
+                    if not in_check(bb, True):
+
                         moves.append((piece, row, col, dr, dc, piece))
-                board[row][col] = piece
-                board[dr][dc] = captured
+
+                    undo_temp_move(bb, piece, src_idx, dst_idx, captured_piece, piece)
+
+        for dc_shift in [-1, 1]:
+
+            if 0 <= col + dc_shift < BOARD_FILES:
+
+                dr = row + 1
+                dc = col + dc_shift
+
+                dst_idx = bb.rc_to_index(dr, dc)
+                dst_bit = 1 << dst_idx
+
+                if bb.black_occ() & dst_bit:
+
+                    captured_piece = board[dr][dc]
+
+                    make_temp_move(bb, piece, src_idx, dst_idx, piece)
+
+                    if not in_check(bb, True):
+
+                        moves.append((piece, row, col, dr, dc, piece))
+
+                    undo_temp_move(bb, piece, src_idx, dst_idx, captured_piece, piece)
 
     else:
-        # black pawn
-        dst_idx = idx - BOARD_FILES
-        if 0 <= dst_idx < BOARD_SQ:
+
+        dst_idx = src_idx - BOARD_FILES
+
+        if dst_idx >= 0:
+
             dst_bit = 1 << dst_idx
+
             if not (bb.all_occ() & dst_bit):
-                board[row][col] = 0
+
                 dr, dc = bb.index_to_rc(dst_idx)
-                captured_at_dst = board[dr][dc]
-                board[dr][dc] = piece
-                if not in_check(board, False):
-                    if row == 1 and len(black_captured) != 0:
-                        for new_piece in set(black_captured):
-                            if new_piece != piece:
-                                moves.append((piece, row, col, dr, dc, new_piece))
-                    elif row != 1:
-                        moves.append((piece, row, col, dr, dc, piece))
-                board[row][col] = piece
-                board[dr][dc] = captured_at_dst
 
-        # capture right (r-1, c+1)
-        if (col + 1) < BOARD_FILES:
-            dr, dc = row - 1, col + 1
-            dst_idx = bb.rc_to_index(dr, dc)
-            dst_bit = 1 << dst_idx
-            if 0 <= dr < BOARD_RANKS and (bb.white_occ() & dst_bit):
-                captured = board[dr][dc]
-                board[row][col] = 0
-                board[dr][dc] = piece
-                if not in_check(board, False):
-                    if row == 1 and len(black_captured) != 0:
-                        for new_piece in set(black_captured):
-                            if new_piece != piece:
-                                moves.append((piece, row, col, dr, dc, new_piece))
-                    elif row != 1:
-                        moves.append((piece, row, col, dr, dc, piece))
-                board[row][col] = piece
-                board[dr][dc] = captured
+                captured_piece = 0
 
-        # capture left (r-1, c-1)
-        if (col - 1) >= 0:
-            dr, dc = row - 1, col - 1
-            dst_idx = bb.rc_to_index(dr, dc)
-            dst_bit = 1 << dst_idx
-            if 0 <= dr < BOARD_RANKS and (bb.white_occ() & dst_bit):
-                captured = board[dr][dc]
-                board[row][col] = 0
-                board[dr][dc] = piece
-                if not in_check(board, False):
-                    if row == 1 and len(black_captured) != 0:
-                        for new_piece in set(black_captured):
-                            if new_piece != piece:
-                                moves.append((piece, row, col, dr, dc, new_piece))
-                    elif row != 1:
+                make_temp_move(bb, piece, src_idx, dst_idx, piece)
+
+                if not in_check(bb, False):
+
+                    moves.append((piece, row, col, dr, dc, piece))
+
+                undo_temp_move(bb, piece, src_idx, dst_idx, captured_piece, piece)
+
+        for dc_shift in [-1, 1]:
+
+            if 0 <= col + dc_shift < BOARD_FILES:
+
+                dr = row - 1
+                dc = col + dc_shift
+
+                dst_idx = bb.rc_to_index(dr, dc)
+                dst_bit = 1 << dst_idx
+
+                if bb.white_occ() & dst_bit:
+
+                    captured_piece = board[dr][dc]
+
+                    make_temp_move(bb, piece, src_idx, dst_idx, piece)
+
+                    if not in_check(bb, False):
+
                         moves.append((piece, row, col, dr, dc, piece))
-                board[row][col] = piece
-                board[dr][dc] = captured
+
+                    undo_temp_move(bb, piece, src_idx, dst_idx, captured_piece, piece)
 
     return moves
 
-def get_knight_moves(board: np.ndarray, row: int, col: int, piece: int):
+def get_knight_moves(board, row, col, piece, bb):
+
     moves = []
 
-    for dst in KNIGHT_MOVES:
-        new_board = board.copy()
-        if(in_bounds(board, row + dst[0], col + dst[1])):
-            new_board[row + dst[0]][col + dst[1]] = piece 
-        new_board[row][col] = 0
-        if(in_bounds(board, row + dst[0], col + dst[1]) and not same_side(piece, board[row + dst[0]][col + dst[1]]) and not in_check(new_board, is_white(piece))):
-            moves.append((piece, row, col, row + dst[0], col + dst[1], piece))
+    src_idx = bb.rc_to_index(row, col)
+
+    for dr, dc in KNIGHT_MOVES:
+
+        r = row + dr
+        c = col + dc
+
+        if not in_bounds(board, r, c):
+            continue
+
+        dst_idx = bb.rc_to_index(r, c)
+        dst_bit = 1 << dst_idx
+
+        if same_side(piece, board[r][c]):
+            continue
+
+        captured = board[r][c]
+
+        make_temp_move(bb, piece, src_idx, dst_idx, piece)
+
+        if not in_check(bb, is_white(piece)):
+
+            moves.append((piece, row, col, r, c, piece))
+
+        undo_temp_move(bb, piece, src_idx, dst_idx, captured, piece)
+
     return moves
 
-def get_sliding_moves(board, row, col, piece, directions):
+def get_sliding_moves(board, row, col, piece, directions, bb):
+
     moves = []
+
+    src_idx = bb.rc_to_index(row, col)
+
     for dr, dc in directions:
+
         r = row + dr
         c = col + dc
 
         while in_bounds(board, r, c):
-            target = board[r][c]
-            if same_side(piece, target):
-                break
-            new_board = board.copy()
-            new_board[row][col] = 0
-            new_board[r][c] = piece
 
-            if not in_check(new_board, is_white(piece)):
-                moves.append((piece, row, col, r, c, piece))
-            if target != 0:
+            if same_side(piece, board[r][c]):
                 break
+
+            dst_idx = bb.rc_to_index(r, c)
+
+            captured = board[r][c]
+
+            make_temp_move(bb, piece, src_idx, dst_idx, piece)
+
+            if not in_check(bb, is_white(piece)):
+
+                moves.append((piece, row, col, r, c, piece))
+
+            undo_temp_move(bb, piece, src_idx, dst_idx, captured, piece)
+
+            if captured != 0:
+                break
+
             r += dr
             c += dc
 
     return moves
 
 def get_bishop_moves(board: np.ndarray, row: int, col: int, piece: int):
-    diagonals = [(-1,-1),(-1,1),(1,-1),(1,1)]
-    return get_sliding_moves(board, row, col, piece, diagonals)
+    diagonals=[(-1,-1),(-1,1),(1,-1),(1,1)]
+    return get_sliding_moves(board,row,col,piece,diagonals,bb)
 
 def get_queen_moves(board: np.ndarray, row: int, col: int, piece: int):
     all_dirs = [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
-    return get_sliding_moves(board, row, col, piece, all_dirs)
+    return get_sliding_moves(board, row, col, piece, all_dirs, bb)
 
-def get_king_moves(board: np.ndarray, row: int, col: int, piece: int):
+def get_king_moves(board, row, col, piece, bb):
+
     moves = []
-    dirs = [(0,1), (1,0), (1,1), (0,-1), (-1,0), (-1,1), (-1,-1), (1,-1)]
-    for d in dirs:
-        new_board = board.copy()
-        if(in_bounds(board, row + d[0], col + d[1])):
-            new_board[row + d[0]][col + d[1]] = piece 
-        new_board[row][col] = 0
-        if(in_bounds(board, row + d[0], col + d[1]) and not same_side(piece, board[row + d[0]][col + d[1]]) and not in_check(new_board, is_white(piece))):
-            moves.append((piece, row, col, row + d[0], col + d[1], piece))
+
+    src_idx = bb.rc_to_index(row, col)
+
+    for dr, dc in KING_MOVES:
+
+        r = row + dr
+        c = col + dc
+
+        if not in_bounds(board, r, c):
+            continue
+
+        if same_side(piece, board[r][c]):
+            continue
+
+        dst_idx = bb.rc_to_index(r, c)
+
+        captured = board[r][c]
+
+        make_temp_move(bb, piece, src_idx, dst_idx, piece)
+
+        if not in_check(bb, is_white(piece)):
+
+            moves.append((piece, row, col, r, c, piece))
+
+        undo_temp_move(bb, piece, src_idx, dst_idx, captured, piece)
+
     return moves

@@ -175,3 +175,4 @@ class Bitboards:
         # place the moved piece (new_piece accounts for promotion)
         pb_new = self.get_bb(new_piece)
         self.set_bb(new_piece, pb_new | dst_bit)
+

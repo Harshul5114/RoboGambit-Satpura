@@ -37,7 +37,8 @@ PIECE_VALUES = {
 COL_TO_FILE = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 4: 'E', 5: 'F'}
 FILE_TO_COL = {v: k for k, v in COL_TO_FILE.items()}
 
-
+BOARD_RANKS = 6
+BOARD_FILES = 6
 
 # PIECE SQUARE TABLES
 # (Optional heuristic: add bonuses/penalties for piece positions)

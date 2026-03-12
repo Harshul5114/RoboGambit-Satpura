@@ -138,33 +138,33 @@ def evaluate(board: np.ndarray) -> float:
 # ---------------------------------------------------------------------------
 
 
-def make_move(board, move, white_captured, black_captured):
+# def make_move(board, move, white_captured, black_captured):
 
-    piece, sr, sc, dr, dc, new_piece = move
+#     piece, sr, sc, dr, dc, new_piece = move
 
-    captured = board[dr][dc]
+#     captured = board[dr][dc]
 
-    board[sr][sc] = 0
-    board[dr][dc] = new_piece
+#     board[sr][sc] = 0
+#     board[dr][dc] = new_piece
 
-    if 1 <= captured <= 5:
-        white_captured.append(captured)
-    elif 6 <= captured <= 10:
-        black_captured.append(captured)
+#     if 1 <= captured <= 5:
+#         white_captured.append(captured)
+#     elif 6 <= captured <= 10:
+#         black_captured.append(captured)
 
-    return captured
+#     return captured
 
-def unmake_move(board, move, captured, white_captured, black_captured):
+# def unmake_move(board, move, captured, white_captured, black_captured):
 
-    piece, sr, sc, dr, dc, new_piece = move
+#     piece, sr, sc, dr, dc, new_piece = move
 
-    board[sr][sc] = piece
-    board[dr][dc] = captured
+#     board[sr][sc] = piece
+#     board[dr][dc] = captured
 
-    if 1 <= captured <= 5:
-        white_captured.pop()
-    elif 6 <= captured <= 10:
-        black_captured.pop()
+#     if 1 <= captured <= 5:
+#         white_captured.pop()
+#     elif 6 <= captured <= 10:
+#         black_captured.pop()
 
 # ---------------------------------------------------------------------------
 # Format move string
@@ -228,7 +228,7 @@ def minimax(board, alpha, beta, depth, playing_white, white_captured, black_capt
                 break
         
         return max_eval
-        
+
     
     else:
         min_eval = float('inf')

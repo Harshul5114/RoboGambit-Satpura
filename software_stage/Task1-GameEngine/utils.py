@@ -23,83 +23,141 @@ def is_black(piece: int) -> bool:
 def same_side(p1: int, p2: int) -> bool:
     return (is_white(p1) and is_white(p2)) or (is_black(p1) and is_black(p2))
 
-def in_check(board: np.ndarray, role_white : bool):
-    target_king = 5 if role_white else 10
-    king_pos = None
-    for r in range(len(board)):
-        for c in range(len(board[r])):
-            if board[r][c] == target_king:
-                king_pos = (r, c)
-                break
-        if king_pos is not None:
-            break
+def in_check(bb, role_white):
 
-    if king_pos is None:
-        # no king found (shouldn't happen in normal play) — treat as in check
+    # king bitboard
+    king_bb = bb.WK if role_white else bb.BK
+
+    if king_bb == 0:
         return True
 
-    kr, kc = king_pos
+    king_sq = king_bb.bit_length() - 1
+    kr = king_sq // BOARD_FILES
+    kc = king_sq % BOARD_FILES
 
-    #Pawn attack
+    # -----------------
+    # pawn attacks
+    # -----------------
+
     if role_white:
-        for dr, dc in [(1, -1), (1, 1)]:
-            rr, cc = kr + dr, kc + dc
-            if in_bounds(board, rr, cc) and board[rr][cc] == 6:
+
+        pawns = bb.BP
+
+        if kc > 0:
+            if pawns & (1 << (king_sq + 5)):
                 return True
+
+        if kc < BOARD_FILES - 1:
+            if pawns & (1 << (king_sq + 7)):
+                return True
+
     else:
-        for dr, dc in [(-1, -1), (-1, 1)]:
-            rr, cc = kr + dr, kc + dc
-            if in_bounds(board, rr, cc) and board[rr][cc] == 1:
+
+        pawns = bb.WP
+
+        if kc > 0:
+            if pawns & (1 << (king_sq - 7)):
                 return True
-    #Knight attack
+
+        if kc < BOARD_FILES - 1:
+            if pawns & (1 << (king_sq - 5)):
+                return True
+
+    # -----------------
+    # knight attacks
+    # -----------------
+
+    enemy_knights = bb.BN if role_white else bb.WN
+
     for dr, dc in KNIGHT_MOVES:
-        rr, cc = kr + dr, kc + dc
-        if in_bounds(board, rr, cc):
-            if role_white and board[rr][cc] == 7:
+
+        r = kr + dr
+        c = kc + dc
+
+        if 0 <= r < BOARD_RANKS and 0 <= c < BOARD_FILES:
+
+            sq = r * BOARD_FILES + c
+
+            if enemy_knights & (1 << sq):
                 return True
-            if not role_white and board[rr][cc] == 2:
-                return True
-    #King attack
-    for dr in (-1, 0, 1):
-        for dc in (-1, 0, 1):
+
+    # -----------------
+    # king attacks
+    # -----------------
+
+    enemy_king = bb.BK if role_white else bb.WK
+
+    for dr in (-1,0,1):
+        for dc in (-1,0,1):
+
             if dr == 0 and dc == 0:
                 continue
-            rr, cc = kr + dr, kc + dc
-            if in_bounds(board, rr, cc):
-                if role_white and board[rr][cc] == 10:
+
+            r = kr + dr
+            c = kc + dc
+
+            if 0 <= r < BOARD_RANKS and 0 <= c < BOARD_FILES:
+
+                sq = r * BOARD_FILES + c
+
+                if enemy_king & (1 << sq):
                     return True
-                if not role_white and board[rr][cc] == 5:
-                    return True
+
+    # occupancy
+    occ = bb.all_occ()
+
+    # -----------------
     # orthogonal rays
+    # -----------------
+
+    enemy_queen = bb.BQ if role_white else bb.WQ
+
     for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
-        rr, cc = kr + dr, kc + dc
-        while in_bounds(board, rr, cc):
-            piece = board[rr][cc]
-            if piece != 0:
-                if role_white:
-                    if piece == 9:  # black queen (orthogonal or diagonal)
-                        return True
-                else:
-                    if piece == 4:  # white queen
-                        return True
+
+        r = kr + dr
+        c = kc + dc
+
+        while 0 <= r < BOARD_RANKS and 0 <= c < BOARD_FILES:
+
+            sq = r * BOARD_FILES + c
+            bit = 1 << sq
+
+            if occ & bit:
+
+                if enemy_queen & bit:
+                    return True
+
                 break
-            rr += dr
-            cc += dc
-    
-    #diagnol rays
+
+            r += dr
+            c += dc
+
+    # -----------------
+    # diagonal rays
+    # -----------------
+
+    enemy_bishop = bb.BB if role_white else bb.WB
+    enemy_queen = bb.BQ if role_white else bb.WQ
+
     for dr, dc in [(-1,-1),(-1,1),(1,-1),(1,1)]:
-        rr, cc = kr + dr, kc + dc
-        while in_bounds(board, rr, cc):
-            piece = board[rr][cc]
-            if piece != 0:
-                if role_white:
-                    if piece == 8 or piece == 9:  # black bishop or queen
-                        return True
-                else:
-                    if piece == 3 or piece == 4:  # white bishop or queen
-                        return True
+
+        r = kr + dr
+        c = kc + dc
+
+        while 0 <= r < BOARD_RANKS and 0 <= c < BOARD_FILES:
+
+            sq = r * BOARD_FILES + c
+            bit = 1 << sq
+
+            if occ & bit:
+
+                if (enemy_bishop | enemy_queen) & bit:
+                    return True
+
                 break
-            rr += dr
-            cc += dc
+
+            r += dr
+            c += dc
+
     return False
 
