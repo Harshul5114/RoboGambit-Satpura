@@ -151,7 +151,7 @@ class Bitboards:
                     bb.set_bb(piece, prev | cls.bit_of(r, c))
         return bb
 
-    def update_move(self, move: tuple, white_captured: list = None, black_captured: list = None):
+    def make_move(self, move: tuple, white_captured: list = None, black_captured: list = None):
         """Apply a move tuple (piece, sr, sc, dr, dc, new_piece) to the bitboards."""
         piece, sr, sc, dr, dc, new_piece = move
         src_bit = self.bit_of(sr, sc)
@@ -159,10 +159,12 @@ class Bitboards:
 
         # remove any piece occupying destination (capture)
         # find which piece occupied destination and clear it
+        captured = 0
         for pid in range(1, 11):
             pb = self.get_bb(pid)
             if pb & dst_bit:
                 self.set_bb(pid, pb & ~dst_bit)
+                captured = pid
                 # if(1 <= pid <= 5):
                 #     white_captured.append(pid)
                 # elif(6 <= pid <= 10):
@@ -175,4 +177,8 @@ class Bitboards:
         # place the moved piece (new_piece accounts for promotion)
         pb_new = self.get_bb(new_piece)
         self.set_bb(new_piece, pb_new | dst_bit)
+
+        return captured
+
+
 

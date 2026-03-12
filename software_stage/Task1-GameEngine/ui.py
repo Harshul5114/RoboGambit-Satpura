@@ -49,6 +49,19 @@ def mouse_to_square(pos):
 
     return row,col
 
+def bb_to_board(bb: Bitboards):
+    board = np.zeros((BOARD_SIZE, BOARD_SIZE), dtype=int)
+
+    for pid in range(1, 11):
+        bb_piece = bb.get_bb(pid)
+
+        while bb_piece:
+            sq = Bitboards.lsb(bb_piece)
+            r, c = Bitboards.index_to_rc(sq)
+            board[r][c] = pid
+            bb_piece &= bb_piece - 1
+
+    return board
 
 def draw_board(screen,board,selected,legal,thinking, playing_white=True):
 
@@ -129,34 +142,51 @@ def draw_board(screen,board,selected,legal,thinking, playing_white=True):
         screen.blit(msg,(WIDTH//2-100,HEIGHT-35))
 
 
-def apply_engine_move(board,move, bb: Bitboards):
-    '''<piece_id>:<source_cell>-><target_cell>=<new_piece>'''
+def apply_engine_move(move, bb: Bitboards):
+    """
+    Apply engine move using ONLY bitboards.
+    Returns captured piece.
+    """
 
     if move is None:
-        return
+        return None
 
     part = move.split(":")[1]
 
     src = part.split("->")[0]
     dst = part.split("->")[1]
-    sr,sc = cell_to_idx(src)
-    dr,dc = cell_to_idx(dst)
-    cap = board[dr][dc]
-    piece = board[sr][sc]
 
-    new_piece = piece
+    sr, sc = cell_to_idx(src)
+
     if "=" in dst:
-        new_piece = int(move.split("=")[1])  # Ensure integer type for promotion
+        dst_cell, promo = dst.split("=")
+        dr, dc = cell_to_idx(dst_cell)
+        new_piece = int(promo)
+    else:
+        dr, dc = cell_to_idx(dst)
+        new_piece = None
 
+    # determine piece from bitboards
+    src_bit = Bitboards.bit_of(sr, sc)
 
-    tuple_move = (piece, sr, sc, dr, dc, new_piece)
-    bb.update_move(tuple_move)
+    piece = None
+    for pid in range(1, 11):
+        if bb.get_bb(pid) & src_bit:
+            piece = pid
+            break
 
-    board[sr][sc] = 0
-    board[dr][dc] = new_piece
+    if piece is None:
+        raise RuntimeError("No piece found at source square")
 
-    return cap if cap != 0 else None
+    if new_piece is None:
+        new_piece = piece
 
+    move_tuple = (piece, sr, sc, dr, dc, new_piece)
+
+    # apply move and return captured piece
+    captured = bb.make_move(move_tuple)
+
+    return captured
     
 
 
@@ -205,20 +235,16 @@ def choose_promotion(screen, playing_white, white_captured=None, black_captured=
 
 
 def run_ui(board, playing_white=True):
-    bb = Bitboards.from_board_array(board)
-    pygame.init()
 
+    bb = Bitboards.from_board_array(board)
+
+    pygame.init()
     screen = pygame.display.set_mode((WIDTH,HEIGHT))
     pygame.display.set_caption("Chess Engine UI")
 
     selected = None
     legal = []
-
-
-
-    
     thinking = False
-
     running = True
 
     if DEBUG:
@@ -226,11 +252,12 @@ def run_ui(board, playing_white=True):
 
     while running:
 
+        board = bb_to_board(bb)   # ALWAYS rebuild board from bitboards
+
         for event in pygame.event.get():
 
             if event.type == pygame.QUIT:
-                running=False
-
+                running = False
 
             if event.type == pygame.MOUSEBUTTONDOWN and not thinking:
 
@@ -239,20 +266,18 @@ def run_ui(board, playing_white=True):
                 if not (0<=row<6 and 0<=col<6):
                     continue
 
-
-                # selecting a piece
                 if selected is None:
 
                     piece = board[row][col]
 
-                    if 1<=piece<=5:  # white pieces
+                    if 1 <= piece <= 5:
 
-                        selected=(row,col)
+                        selected = (row,col)
 
-                        moves = get_all_moves(board,True,white_captured,black_captured, bb)
+                        moves = get_all_moves(True, white_captured, black_captured, bb)
 
-                        legal=[]
-                        seen_targets=set()
+                        legal = []
+                        seen_targets = set()
 
                         for m in moves:
                             if m[1]==row and m[2]==col:
@@ -263,114 +288,93 @@ def run_ui(board, playing_white=True):
                                     legal.append(m)
                                     seen_targets.add(target)
 
-
-                # selecting destination square
                 else:
 
-                    moved=False
+                    moved = False
 
                     for m in legal:
+
                         if (m[3],m[4])==(row,col):
 
                             piece,sr,sc,dr,dc,new_piece = m
 
-
-                            # promotion detection
                             if new_piece != piece:
-                                choosen = None
-                                while choosen is None:
-                                    choosen = choose_promotion(screen, playing_white, white_captured, black_captured)
-                                
-                                new_piece = choosen
+                                chosen = None
+                                while chosen is None:
+                                    chosen = choose_promotion(screen, playing_white, white_captured, black_captured)
+                                new_piece = chosen
 
-                            captured = board[dr][dc]
-                            board[sr][sc]=0
-                            board[dr][dc]=new_piece
-                            bb.update_move(m)   
+                                m = (piece,sr,sc,dr,dc,new_piece)
+
+                            captured = bb.make_move(m)
 
                             if captured:
-                                
                                 if captured in [6,7,8,9,10]:
                                     black_captured.append(captured)
                                 else:
                                     white_captured.append(captured)
-                            
 
-
-                            moved=True
-                            selected=None
-                            legal=[]
-
+                            moved = True
+                            selected = None
+                            legal = []
                             break
 
-
                     if moved:
-
-                        playing_white=False
-                        thinking=True
-
+                        playing_white = False
+                        thinking = True
                     else:
+                        selected = None
+                        legal = []
 
-                        selected=None
-                        legal=[]
-                    
+        board = bb_to_board(bb)
 
-        draw_board(screen,board,selected,legal,thinking, playing_white)
+        draw_board(screen, board, selected, legal, thinking, playing_white)
         pygame.display.flip()
 
-        # BOT MOVE
         if thinking:
 
             pygame.display.flip()
 
+            board = bb_to_board(bb)
+
             st = time.time()
-            move = _get_best_move(board, playing_white, white_captured=white_captured, black_captured=black_captured)
+
+            move = _get_best_move(
+                board,
+                playing_white,
+                white_captured=white_captured,
+                black_captured=black_captured
+            )
+
             et = time.time()
 
             if DEBUG:
-                print("Engine move:",move)
+                print("Engine move:", move)
                 print("Time taken: {:.2f} seconds".format(et-st))
                 times.append(et-st)
 
-                    
-            captured = apply_engine_move(board,move, bb)
+            captured = apply_engine_move(move, bb)
+
             if captured:
                 if captured in [1,2,3,4,5]:
                     white_captured.append(captured)
                 else:
                     black_captured.append(captured)
 
-            thinking=False
-            playing_white=True
-        
+            thinking = False
+            playing_white = True
+
             print(white_captured, black_captured)
+
+            board = bb_to_board(bb)
+
             print_board(board)
             print("--------------------------------")
             bb.print_board()
 
-        #if terminal, print message and wait a bit before closing
-        #print who won also based on value returned by is_terminal() (1:checkmate, 2:stalemate, else 0)
-        #print who won based on playing_white variable (if True, player is white, else black)
-        # if is_terminal(board,True):
-        #     result = is_terminal(board,True)
-
-        #     if result == 1:
-        #         if playing_white:
-        #             msg = "Checkmate! Black wins."
-        #         else:
-        #             msg = "Checkmate! White wins."
-        #     elif result == 2:
-        #         msg = "Stalemate! It's a draw."
-        #     else:
-        #         msg = "Game over!"
-
-        #     print(msg)
-
-        #     pygame.time.wait(3000)
-
     if DEBUG:
         print("Game over!")
         print("Total moves played:",len(times))
-        print("Average engine move time: {:.2f} seconds".format(sum(times)/len(times) if times else 0))
+        print("Average engine move time: {:.2f}".format(sum(times)/len(times) if times else 0))
 
     pygame.quit()

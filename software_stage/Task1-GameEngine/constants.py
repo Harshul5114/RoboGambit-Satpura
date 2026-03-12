@@ -15,6 +15,7 @@ BLACK_QUEEN  = 9
 BLACK_KING   = 10
 
 KNIGHT_MOVES = [(-2,-1),(-2,1),(2,-1),(2,1),(-1,-2),(-1,2),(1,-2),(1,2)]
+KING_MOVES = [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
 
 WHITE_PIECES = {WHITE_PAWN, WHITE_KNIGHT, WHITE_BISHOP, WHITE_QUEEN, WHITE_KING}
 BLACK_PIECES = {BLACK_PAWN, BLACK_KNIGHT, BLACK_BISHOP, BLACK_QUEEN, BLACK_KING}
@@ -93,9 +94,9 @@ KING_BASE = np.array([
 FACTORS = {
     'pawn':  0.10,   # pawn bonus ≈ piece_value * 0.10 * base_value  -> up to ~10 pts
     'knight':0.08,   # knight ≈ 300 * 0.08 * base -> up to ~24 pts
-    'bishop':0.08,   # bishop ≈ 320 * 0.08 -> up to ~25 pts
-    'queen': 0.05,   # queen ≈ 900 * 0.05 -> up to ~45 pts (but base is small so actual smaller)
-    'king':  0.03    # king safety tiny
+    'bishop':0.00,   # bishop ≈ 320 * 0.08 -> up to ~25 pts
+    'queen': 0.01,   # queen ≈ 900 * 0.05 -> up to ~45 pts (but base is small so actual smaller)
+    'king':  0.01    # king safety tiny
 }
 # ---------------------------------------------------------------------------
 # Coordinate helpers

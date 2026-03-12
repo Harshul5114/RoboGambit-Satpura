@@ -38,31 +38,39 @@ def in_check(bb, role_white):
     # -----------------
     # pawn attacks
     # -----------------
+# pawn attacks
 
     if role_white:
 
         pawns = bb.BP
 
-        if kc > 0:
-            if pawns & (1 << (king_sq + 5)):
-                return True
+        for dc in (-1, 1):
 
-        if kc < BOARD_FILES - 1:
-            if pawns & (1 << (king_sq + 7)):
-                return True
+            r = kr + 1
+            c = kc + dc
+
+            if 0 <= r < BOARD_RANKS and 0 <= c < BOARD_FILES:
+
+                sq = r * BOARD_FILES + c
+
+                if pawns & (1 << sq):
+                    return True
 
     else:
 
         pawns = bb.WP
 
-        if kc > 0:
-            if pawns & (1 << (king_sq - 7)):
-                return True
+        for dc in (-1, 1):
 
-        if kc < BOARD_FILES - 1:
-            if pawns & (1 << (king_sq - 5)):
-                return True
+            r = kr - 1
+            c = kc + dc
 
+            if 0 <= r < BOARD_RANKS and 0 <= c < BOARD_FILES:
+
+                sq = r * BOARD_FILES + c
+
+                if pawns & (1 << sq):
+                    return True
     # -----------------
     # knight attacks
     # -----------------
