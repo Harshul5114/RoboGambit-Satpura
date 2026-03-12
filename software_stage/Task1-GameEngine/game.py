@@ -73,6 +73,63 @@ FILE_TO_COL = {v: k for k, v in COL_TO_FILE.items()}
 
 
 
+# PIECE SQUARE TABLES
+# (Optional heuristic: add bonuses/penalties for piece positions)
+
+# Base tables in range approx [-1, +1]; white's perspective.
+PAWN_BASE = np.array([
+    [ 0.0,  0.0,  0.0,  0.0,  0.0,  0.0],  # rank 1 (home)
+    [ 0.1,  0.1,  0.1,  0.1,  0.1,  0.1],
+    [ 0.2,  0.2,  0.25, 0.25, 0.2,  0.2],
+    [ 0.3,  0.3,  0.35, 0.35, 0.3,  0.3],
+    [ 0.4,  0.4,  0.4,  0.4,  0.4,  0.4],
+    [ 0.0,  0.0,  0.0,  0.0,  0.0,  0.0]   # last rank (promotion rank) — special handled by move logic
+])
+
+KNIGHT_BASE = np.array([
+    [-0.6, -0.4, -0.2, -0.2, -0.4, -0.6],
+    [-0.4,  0.2,  0.4,  0.4,  0.2, -0.4],
+    [-0.2,  0.4,  0.6,  0.6,  0.4, -0.2],
+    [-0.2,  0.4,  0.6,  0.6,  0.4, -0.2],
+    [-0.4,  0.2,  0.4,  0.4,  0.2, -0.4],
+    [-0.6, -0.4, -0.2, -0.2, -0.4, -0.6]
+])
+
+BISHOP_BASE = np.array([
+    [-0.3, -0.1,  0.0,  0.0, -0.1, -0.3],
+    [-0.1,  0.1,  0.2,  0.2,  0.1, -0.1],
+    [ 0.0,  0.2,  0.4,  0.4,  0.2,  0.0],
+    [ 0.0,  0.2,  0.4,  0.4,  0.2,  0.0],
+    [-0.1,  0.1,  0.2,  0.2,  0.1, -0.1],
+    [-0.3, -0.1,  0.0,  0.0, -0.1, -0.3]
+])
+
+QUEEN_BASE = np.array([
+    [-0.2, -0.1,  0.0,  0.0, -0.1, -0.2],
+    [-0.1,  0.1,  0.2,  0.2,  0.1, -0.1],
+    [ 0.0,  0.2,  0.3,  0.3,  0.2,  0.0],
+    [ 0.0,  0.2,  0.3,  0.3,  0.2,  0.0],
+    [-0.1,  0.1,  0.2,  0.2,  0.1, -0.1],
+    [-0.2, -0.1,  0.0,  0.0, -0.1, -0.2]
+])
+
+# King: opening/middlegame prefer castled/safe (edges), in endgame want central king (we keep simple small bias)
+KING_BASE = np.array([
+    [-0.4, -0.2,  0.0,  0.0, -0.2, -0.4],
+    [-0.2, -0.1,  0.1,  0.1, -0.1, -0.2],
+    [ 0.0,  0.1,  0.2,  0.2,  0.1,  0.0],
+    [ 0.0,  0.1,  0.2,  0.2,  0.1,  0.0],
+    [-0.2, -0.1,  0.1,  0.1, -0.1, -0.2],
+    [-0.4, -0.2,  0.0,  0.0, -0.2, -0.4]
+])
+
+FACTORS = {
+    'pawn':  0.10,   # pawn bonus ≈ piece_value * 0.10 * base_value  -> up to ~10 pts
+    'knight':0.08,   # knight ≈ 300 * 0.08 * base -> up to ~24 pts
+    'bishop':0.08,   # bishop ≈ 320 * 0.08 -> up to ~25 pts
+    'queen': 0.05,   # queen ≈ 900 * 0.05 -> up to ~45 pts (but base is small so actual smaller)
+    'king':  0.03    # king safety tiny
+}
 # ---------------------------------------------------------------------------
 # Coordinate helpers
 # ---------------------------------------------------------------------------
@@ -195,6 +252,7 @@ def get_pawn_moves(board: np.ndarray, row: int, col: int, piece: int,
         r = row + 1
         c = col
 
+        
         if in_bounds(board, r, c) and board[r][c] == 0:
 
             board[row][col] = 0
@@ -204,8 +262,10 @@ def get_pawn_moves(board: np.ndarray, row: int, col: int, piece: int,
 
                 if row == len(board) - 2 and len(white_captured) != 0:
                     for new_piece in set(white_captured):
-                        moves.append((piece, row, col, r, c, new_piece))
-                else:
+                        if new_piece != piece:  # promotion move
+                            moves.append((piece, row, col, r, c, new_piece))
+                  
+                elif row != len(board) - 2: 
                     moves.append((piece, row, col, r, c, piece))
 
             board[row][col] = piece
@@ -227,8 +287,9 @@ def get_pawn_moves(board: np.ndarray, row: int, col: int, piece: int,
 
                 if row == len(board) - 2 and len(white_captured) != 0:
                     for new_piece in set(white_captured):
-                        moves.append((piece, row, col, r, c, new_piece))
-                else:
+                        if new_piece != piece:  # promotion move
+                            moves.append((piece, row, col, r, c, new_piece))
+                elif row != len(board) - 2:  # normal capture without promotion
                     moves.append((piece, row, col, r, c, piece))
 
             board[row][col] = piece
@@ -250,8 +311,9 @@ def get_pawn_moves(board: np.ndarray, row: int, col: int, piece: int,
 
                 if row == len(board) - 2 and len(white_captured) != 0:
                     for new_piece in set(white_captured):
-                        moves.append((piece, row, col, r, c, new_piece))
-                else:
+                        if new_piece != piece:  # promotion move
+                            moves.append((piece, row, col, r, c, new_piece))
+                elif row != len(board) - 2: 
                     moves.append((piece, row, col, r, c, piece))
 
             board[row][col] = piece
@@ -273,8 +335,8 @@ def get_pawn_moves(board: np.ndarray, row: int, col: int, piece: int,
 
                 if row == 1 and len(black_captured) != 0:
                     for new_piece in set(black_captured):
-                        moves.append((piece, row, col, r, c, new_piece))
-                else:
+                        if new_piece != piece:  # promotion move
+                            moves.append((piece, row, col, r, c, new_piece))
                     moves.append((piece, row, col, r, c, piece))
 
             board[row][col] = piece
@@ -297,7 +359,7 @@ def get_pawn_moves(board: np.ndarray, row: int, col: int, piece: int,
                 if row == 1 and len(black_captured) != 0:
                     for new_piece in set(black_captured):
                         moves.append((piece, row, col, r, c, new_piece))
-                else:
+                elif row != 1:
                     moves.append((piece, row, col, r, c, piece))
 
             board[row][col] = piece
@@ -320,7 +382,7 @@ def get_pawn_moves(board: np.ndarray, row: int, col: int, piece: int,
                 if row == 1 and len(black_captured) != 0:
                     for new_piece in set(black_captured):
                         moves.append((piece, row, col, r, c, new_piece))
-                else:
+                elif row != 1:
                     moves.append((piece, row, col, r, c, piece))
 
             board[row][col] = piece
@@ -441,28 +503,57 @@ def score_move(board, move):
 # ---------------------------------------------------------------------------
 
 def is_terminal(board: np.ndarray, playing_white, white_captured, black_captured):
-    if(len(get_all_moves(board, playing_white, white_captured, black_captured)) == 0 and in_check(board, playing_white)):
+    all_moves = get_all_moves(board, playing_white, white_captured, black_captured)
+    if(len(all_moves) == 0 and in_check(board, playing_white)):
         return 1 #checkmate 
-    elif(len(get_all_moves(board, playing_white, white_captured, black_captured)) == 0 and not in_check(board, playing_white)):
+    elif(len(all_moves) == 0 and not in_check(board, playing_white)):
         return 2 #stalemate 
     else:
         return 0
         
-        
+def pst_bonus(piece, row, col):
+    """Return signed positional bonus (positive for White, negative for Black)."""
+    # choose absolute piece value for sign handling
+    is_white_piece = is_white(piece)
+
+    sign = 1 if is_white_piece else -1
+
+    if piece in (WHITE_PAWN, BLACK_PAWN):
+        base = PAWN_BASE[row, col] if is_white_piece else PAWN_BASE[::-1, :][row, col]
+        return sign * PIECE_VALUES[WHITE_PAWN] * FACTORS['pawn'] * base
+
+    if piece in (WHITE_KNIGHT, BLACK_KNIGHT):
+        base = KNIGHT_BASE[row, col] if is_white_piece else KNIGHT_BASE[::-1, :][row, col]
+        return sign * 300 * FACTORS['knight'] * base
+
+    if piece in (WHITE_BISHOP, BLACK_BISHOP):
+        base = BISHOP_BASE[row, col] if is_white_piece else BISHOP_BASE[::-1, :][row, col]
+        return sign * 320 * FACTORS['bishop'] * base
+
+    if piece in (WHITE_QUEEN, BLACK_QUEEN):
+        base = QUEEN_BASE[row, col] if is_white_piece else QUEEN_BASE[::-1, :][row, col]
+        return sign * 900 * FACTORS['queen'] * base
+
+    if piece in (WHITE_KING, BLACK_KING):
+        base = KING_BASE[row, col] if is_white_piece else KING_BASE[::-1, :][row, col]
+        return sign * 20000 * FACTORS['king'] * base
+
+    return 0.0        
 
 def evaluate(board: np.ndarray) -> float:
-    """
-    Static board evaluation from White's perspective.
-    Positive  → advantage for White
-    Negative  → advantage for Black
-    TODO: Add mobility, piece-square tables, king safety, etc.
-    """
     score = 0.0
-    for row in range(len(board)):
-        for col in range(len(board[row])):
-            piece = board[row][col]
-            if piece != EMPTY:
-                score += PIECE_VALUES.get(piece, 0)
+    for r in range(6):
+        for c in range(6):
+            piece = board[r][c]
+            if piece == EMPTY:
+                continue
+            # material (use piece value table, white positive, black negative)
+            score += PIECE_VALUES.get(piece, 0)
+            # positional PST bonus
+            score += pst_bonus(piece, r, c)
+    # small mobility bonus (optional)
+    # mobility_weight = 2.0
+    # score += mobility_weight * (len(get_all_moves(board, True, [], [])) - len(get_all_moves(board, False, [], [])))
     return score
 
 # ---------------------------------------------------------------------------
@@ -504,7 +595,7 @@ def unmake_move(board, move, captured, white_captured, black_captured):
 
 def format_move(piece: int, src_row: int, src_col: int,
                 dst_row: int, dst_col: int, new_piece: int) -> str:
-    """Return move in required format: '<piece_id>:<source_cell>-><target_cell>'."""
+    """Return move in required format: '<piece_id>:<source_cell>-><target_cell>=<new_piece>'."""
     src_cell = idx_to_cell(src_row, src_col)
     dst_cell = idx_to_cell(dst_row, dst_col)
     return f"{piece}:{src_cell}->{dst_cell}" if piece == new_piece else f"{piece}:{src_cell}->{dst_cell}={new_piece}" 
@@ -513,7 +604,8 @@ def format_move(piece: int, src_row: int, src_col: int,
 # Main entry point
 # ---------------------------------------------------------------------------
 def minimax(board, alpha, beta, depth, playing_white, white_captured, black_captured):
-    if is_terminal(board, playing_white, white_captured, black_captured) == 1:
+    terminal_state = is_terminal(board, playing_white, white_captured, black_captured)
+    if terminal_state == 1:
         king_row = -1
         king_col = -1
         for row in range(len(board)):
@@ -522,11 +614,12 @@ def minimax(board, alpha, beta, depth, playing_white, white_captured, black_capt
                 if((playing_white and piece == 5) or (not playing_white and piece == 10)):
                     king_row = row 
                     king_col = col 
-        new_board = board.copy()
-        new_board[king_row][king_col] = 0
-        return evaluate(new_board)*depth
+        board[king_row][king_col] = 0
+        eval = evaluate(board)*depth
+        board[king_row][king_col] = 5 if playing_white else 10
+        return eval
     
-    elif(depth == 0 or is_terminal(board, playing_white, white_captured, black_captured) == 2):
+    elif(depth == 0 or terminal_state == 2):
         return evaluate(board)   
     
     if playing_white:
@@ -577,8 +670,25 @@ def minimax(board, alpha, beta, depth, playing_white, white_captured, black_capt
 # doing this would make the possible moves for a state of the board to be empty in the case of a checkmate or stalemate
 # then we check if the king is in check and remove it and evaluate the board and if it is not then we evaluate the board as it is
 
-
 def get_best_move(board: np.ndarray, playing_white: bool = True) -> Optional[str]:
+    """
+    Given the current board state, return the best move string.
+
+    Parameters
+    ----------
+    board        : 6×6 NumPy array representing the current game state.
+    playing_white: True if the engine is playing as White, False for Black.
+   
+
+    Returns
+    -------
+    Move string in the format '<piece_id>:<src_cell>-><dst_cell>', or
+    None if no legal moves are available.
+    """
+    return _get_best_move(board, playing_white, [], [])
+
+
+def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured: list = None, black_captured: list = None) -> Optional[str]:
     """
     Given the current board state, return the best move string.
 
@@ -605,17 +715,16 @@ def get_best_move(board: np.ndarray, playing_white: bool = True) -> Optional[str
     alpha = float('-inf')
     beta = float('inf')
 
-    temp_white_captured = []
-    temp_black_captured = []
-    all_moves = get_all_moves(board, playing_white, temp_white_captured, temp_black_captured)
+
+    all_moves = get_all_moves(board, playing_white, white_captured, black_captured)
     all_moves.sort(key=lambda move: score_move(board, move), reverse=playing_white)  # Sort moves by heuristic score
     for move in all_moves:
         
-        captured = make_move(board, move, temp_white_captured, temp_black_captured)
+        captured = make_move(board, move, white_captured, black_captured)
         
-        value = minimax(board, alpha, beta, 4, not playing_white, temp_white_captured, temp_black_captured)
+        value = minimax(board, alpha, beta, 4, not playing_white, white_captured, black_captured)
 
-        unmake_move(board, move, captured, temp_white_captured, temp_black_captured)
+        unmake_move(board, move, captured, white_captured, black_captured)
         
         if (playing_white and value > best_value) or (not playing_white and value < best_value):
             best_value = value
@@ -658,5 +767,5 @@ if __name__ == "__main__":
     ])
 
     print("Board:\n", initial_board_2)
-    move = get_best_move(initial_board_2, playing_white=False)
+    move = _get_best_move(initial_board_2, playing_white=False)
     print("Best move for White:", move)

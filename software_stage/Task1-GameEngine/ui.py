@@ -1,6 +1,7 @@
 import pygame
-from game import get_all_moves, get_best_move, cell_to_idx, is_terminal
+from game import get_all_moves, _get_best_move, cell_to_idx, is_terminal
 import time
+import numpy as np
 
 BOARD_SIZE = 6
 CELL = 100
@@ -24,6 +25,9 @@ PIECE_UNICODE = {
 DEBUG = True # to print engine moves in console and other stuff maybe in future
 
 
+white_captured = []
+black_captured = []
+
 def mouse_to_square(pos):
 
     x,y = pos
@@ -34,7 +38,12 @@ def mouse_to_square(pos):
     return row,col
 
 
-def draw_board(screen,board,selected,legal,thinking):
+def draw_board(screen,board,selected,legal,thinking, playing_white=True):
+
+    dboard = np.copy(board)
+
+    # if not playing_white:
+    #     dboard = np.flip(dboard)
 
     screen.fill((30,30,30))
 
@@ -68,7 +77,7 @@ def draw_board(screen,board,selected,legal,thinking):
 
                     pygame.draw.circle(screen,MOVE,(cx,cy),10)
 
-            piece = board[r][c]
+            piece = dboard[r][c]
 
             if piece!=0:
 
@@ -109,6 +118,7 @@ def draw_board(screen,board,selected,legal,thinking):
 
 
 def apply_engine_move(board,move):
+    '''<piece_id>:<source_cell>-><target_cell>=<new_piece>'''
 
     if move is None:
         return
@@ -118,19 +128,71 @@ def apply_engine_move(board,move):
     src = part.split("->")[0]
     dst = part.split("->")[1]
 
+    new_piece = None
     if "=" in dst:
-        dst = dst.split("=")[0]
+        new_piece = move.split("=")[1]
 
     sr,sc = cell_to_idx(src)
     dr,dc = cell_to_idx(dst)
 
+    cap = board[dr][dc]
     piece = board[sr][sc]
+    if new_piece:
+        piece = int(new_piece)
 
     board[sr][sc] = 0
     board[dr][dc] = piece
 
+    return cap if cap != 0 else None
 
-def run_ui(board):
+    
+
+
+
+def choose_promotion(screen, playing_white, white_captured=None, black_captured=None):
+
+    font = pygame.font.SysFont(None, 20)
+
+    while True:
+
+        for event in pygame.event.get():
+
+            if event.type == pygame.KEYDOWN:
+
+                if event.key == pygame.K_1:
+                    if playing_white and 2 in white_captured:
+                        return 2   # knight
+                    elif not playing_white and 7 in black_captured:
+                        return 7   # knight
+                        
+
+                elif event.key == pygame.K_2:
+                    if playing_white and 3 in white_captured:
+                        return 3   # bishop
+                    elif not playing_white and 8 in black_captured:
+                        return 8   # bishop 
+                elif event.key == pygame.K_3:
+                    if playing_white and 4 in white_captured:
+                        return 4   # queen
+                    elif not playing_white and 9 in black_captured:
+                        return 9   # queen
+
+        screen.fill((30,30,30))
+
+        text = font.render(
+            "Pawn Promotion: 1=Knight 2=Bishop 3=Queen",
+            True,
+            (255,255,255)
+        )
+
+        screen.blit(text,(80,300))
+
+        pygame.display.flip()
+
+
+
+
+def run_ui(board, playing_white=True):
 
     pygame.init()
 
@@ -140,7 +202,9 @@ def run_ui(board):
     selected = None
     legal = []
 
-    playing_white = True
+
+
+    
     thinking = False
 
     running = True
@@ -155,8 +219,6 @@ def run_ui(board):
             if event.type == pygame.QUIT:
                 running=False
 
-            # if is_terminal(board,True):
-            #     running=False
 
             if event.type == pygame.MOUSEBUTTONDOWN and not thinking:
 
@@ -165,6 +227,8 @@ def run_ui(board):
                 if not (0<=row<6 and 0<=col<6):
                     continue
 
+
+                # selecting a piece
                 if selected is None:
 
                     piece = board[row][col]
@@ -173,22 +237,52 @@ def run_ui(board):
 
                         selected=(row,col)
 
-                        moves = get_all_moves(board,True,[],[])
+                        moves = get_all_moves(board,True,white_captured,black_captured)
 
-                        legal=[m for m in moves if m[1]==row and m[2]==col]
+                        legal=[]
+                        seen_targets=set()
 
+                        for m in moves:
+                            if m[1]==row and m[2]==col:
+
+                                target=(m[3],m[4])
+
+                                if target not in seen_targets:
+                                    legal.append(m)
+                                    seen_targets.add(target)
+
+
+                # selecting destination square
                 else:
-                        
+
                     moved=False
 
                     for m in legal:
-
                         if (m[3],m[4])==(row,col):
 
-                            piece,sr,sc,dr,dc,new_piece=m
+                            piece,sr,sc,dr,dc,new_piece = m
 
+
+                            # promotion detection
+                            if new_piece != piece:
+                                choosen = None
+                                while choosen is None:
+                                    choosen = choose_promotion(screen, playing_white, white_captured, black_captured)
+                                
+                                new_piece = choosen
+
+                            captured = board[dr][dc]
                             board[sr][sc]=0
                             board[dr][dc]=new_piece
+
+                            if captured:
+                                
+                                if captured in [6,7,8,9,10]:
+                                    black_captured.append(captured)
+                                else:
+                                    white_captured.append(captured)
+                            
+
 
                             moved=True
                             selected=None
@@ -196,14 +290,19 @@ def run_ui(board):
 
                             break
 
+
                     if moved:
+
                         playing_white=False
                         thinking=True
+
                     else:
+
                         selected=None
                         legal=[]
+                    
 
-        draw_board(screen,board,selected,legal,thinking)
+        draw_board(screen,board,selected,legal,thinking, playing_white)
         pygame.display.flip()
 
         # BOT MOVE
@@ -212,7 +311,7 @@ def run_ui(board):
             pygame.display.flip()
 
             st = time.time()
-            move = get_best_move(board,playing_white=False)
+            move = _get_best_move(board, playing_white, white_captured=white_captured, black_captured=black_captured)
             et = time.time()
 
             if DEBUG:
@@ -220,12 +319,18 @@ def run_ui(board):
                 print("Time taken: {:.2f} seconds".format(et-st))
                 times.append(et-st)
 
-                        
-
-            apply_engine_move(board,move)
+                    
+            captured = apply_engine_move(board,move)
+            if captured:
+                if captured in [1,2,3,4,5]:
+                    white_captured.append(captured)
+                else:
+                    black_captured.append(captured)
 
             thinking=False
             playing_white=True
+        
+            print(white_captured, black_captured)
 
         #if terminal, print message and wait a bit before closing
         #print who won also based on value returned by is_terminal() (1:checkmate, 2:stalemate, else 0)
