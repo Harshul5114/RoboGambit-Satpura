@@ -2,7 +2,7 @@ import pygame
 from game import get_all_moves, _get_best_move, cell_to_idx, is_terminal
 import time
 import numpy as np
-
+from bitboard import *
 BOARD_SIZE = 6
 CELL = 100
 
@@ -27,6 +27,18 @@ DEBUG = True # to print engine moves in console and other stuff maybe in future
 
 white_captured = []
 black_captured = []
+
+def print_board(board : np.ndarray):
+    piece_map = {
+            1: 'P', 2: 'N', 3: 'B', 4: 'Q', 5: 'K',
+            6: 'p', 7: 'n', 8: 'b', 9: 'q', 10: 'k'
+        }
+    for r in range(BOARD_SIZE-1, -1, -1):
+        row = ""
+        for c in range(BOARD_SIZE):
+            piece = board[r][c]
+            row += (piece_map[piece] + " ") if piece != 0 else ". "
+        print(row)
 
 def mouse_to_square(pos):
 
@@ -117,7 +129,7 @@ def draw_board(screen,board,selected,legal,thinking, playing_white=True):
         screen.blit(msg,(WIDTH//2-100,HEIGHT-35))
 
 
-def apply_engine_move(board,move):
+def apply_engine_move(board,move, bb: Bitboards):
     '''<piece_id>:<source_cell>-><target_cell>=<new_piece>'''
 
     if move is None:
@@ -127,21 +139,21 @@ def apply_engine_move(board,move):
 
     src = part.split("->")[0]
     dst = part.split("->")[1]
-
-    new_piece = None
-    if "=" in dst:
-        new_piece = move.split("=")[1]
-
     sr,sc = cell_to_idx(src)
     dr,dc = cell_to_idx(dst)
-
     cap = board[dr][dc]
     piece = board[sr][sc]
-    if new_piece:
-        piece = int(new_piece)
+
+    new_piece = piece
+    if "=" in dst:
+        new_piece = int(move.split("=")[1])  # Ensure integer type for promotion
+
+
+    tuple_move = (piece, sr, sc, dr, dc, new_piece)
+    bb.update_move(tuple_move)
 
     board[sr][sc] = 0
-    board[dr][dc] = piece
+    board[dr][dc] = new_piece
 
     return cap if cap != 0 else None
 
@@ -193,7 +205,7 @@ def choose_promotion(screen, playing_white, white_captured=None, black_captured=
 
 
 def run_ui(board, playing_white=True):
-
+    bb = Bitboards.from_board_array(board)
     pygame.init()
 
     screen = pygame.display.set_mode((WIDTH,HEIGHT))
@@ -237,7 +249,7 @@ def run_ui(board, playing_white=True):
 
                         selected=(row,col)
 
-                        moves = get_all_moves(board,True,white_captured,black_captured)
+                        moves = get_all_moves(board,True,white_captured,black_captured, bb)
 
                         legal=[]
                         seen_targets=set()
@@ -274,6 +286,7 @@ def run_ui(board, playing_white=True):
                             captured = board[dr][dc]
                             board[sr][sc]=0
                             board[dr][dc]=new_piece
+                            bb.update_move(m)   
 
                             if captured:
                                 
@@ -320,7 +333,7 @@ def run_ui(board, playing_white=True):
                 times.append(et-st)
 
                     
-            captured = apply_engine_move(board,move)
+            captured = apply_engine_move(board,move, bb)
             if captured:
                 if captured in [1,2,3,4,5]:
                     white_captured.append(captured)
@@ -331,6 +344,9 @@ def run_ui(board, playing_white=True):
             playing_white=True
         
             print(white_captured, black_captured)
+            print_board(board)
+            print("--------------------------------")
+            bb.print_board()
 
         #if terminal, print message and wait a bit before closing
         #print who won also based on value returned by is_terminal() (1:checkmate, 2:stalemate, else 0)

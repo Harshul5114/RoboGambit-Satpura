@@ -28,447 +28,24 @@ import numpy as np
 from typing import Optional
 from bitboard import *
 import sys 
+from utils import *
+from constants import *
+from moves import *
 sys.setrecursionlimit(10**5)
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-EMPTY = 0
 
-# Piece IDs
-WHITE_PAWN   = 1
-WHITE_KNIGHT = 2
-WHITE_BISHOP = 3
-WHITE_QUEEN  = 4
-WHITE_KING   = 5
-BLACK_PAWN   = 6
-BLACK_KNIGHT = 7
-BLACK_BISHOP = 8
-BLACK_QUEEN  = 9
-BLACK_KING   = 10
-
-KNIGHT_MOVES = [(-2,-1),(-2,1),(2,-1),(2,1),(-1,-2),(-1,2),(1,-2),(1,2)]
-
-WHITE_PIECES = {WHITE_PAWN, WHITE_KNIGHT, WHITE_BISHOP, WHITE_QUEEN, WHITE_KING}
-BLACK_PIECES = {BLACK_PAWN, BLACK_KNIGHT, BLACK_BISHOP, BLACK_QUEEN, BLACK_KING}
-
-BOARD_SIZE = 6
-
-PIECE_VALUES = {
-    WHITE_PAWN:   100,
-    WHITE_KNIGHT: 300,
-    WHITE_BISHOP: 320,
-    WHITE_QUEEN:  900,
-    WHITE_KING:  20000,
-    BLACK_PAWN:  -100,
-    BLACK_KNIGHT:-300,
-    BLACK_BISHOP:-320,
-    BLACK_QUEEN: -900,
-    BLACK_KING: -20000,
-}
-# Column index → letter
-COL_TO_FILE = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 4: 'E', 5: 'F'}
-FILE_TO_COL = {v: k for k, v in COL_TO_FILE.items()}
-
-
-
-# PIECE SQUARE TABLES
-# (Optional heuristic: add bonuses/penalties for piece positions)
-
-# Base tables in range approx [-1, +1]; white's perspective.
-PAWN_BASE = np.array([
-    [ 0.0,  0.0,  0.0,  0.0,  0.0,  0.0],  # rank 1 (home)
-    [ 0.1,  0.1,  0.1,  0.1,  0.1,  0.1],
-    [ 0.2,  0.2,  0.25, 0.25, 0.2,  0.2],
-    [ 0.3,  0.3,  0.35, 0.35, 0.3,  0.3],
-    [ 0.4,  0.4,  0.4,  0.4,  0.4,  0.4],
-    [ 0.0,  0.0,  0.0,  0.0,  0.0,  0.0]   # last rank (promotion rank) — special handled by move logic
-])
-
-KNIGHT_BASE = np.array([
-    [-0.6, -0.4, -0.2, -0.2, -0.4, -0.6],
-    [-0.4,  0.2,  0.4,  0.4,  0.2, -0.4],
-    [-0.2,  0.4,  0.6,  0.6,  0.4, -0.2],
-    [-0.2,  0.4,  0.6,  0.6,  0.4, -0.2],
-    [-0.4,  0.2,  0.4,  0.4,  0.2, -0.4],
-    [-0.6, -0.4, -0.2, -0.2, -0.4, -0.6]
-])
-
-BISHOP_BASE = np.array([
-    [-0.3, -0.1,  0.0,  0.0, -0.1, -0.3],
-    [-0.1,  0.1,  0.2,  0.2,  0.1, -0.1],
-    [ 0.0,  0.2,  0.4,  0.4,  0.2,  0.0],
-    [ 0.0,  0.2,  0.4,  0.4,  0.2,  0.0],
-    [-0.1,  0.1,  0.2,  0.2,  0.1, -0.1],
-    [-0.3, -0.1,  0.0,  0.0, -0.1, -0.3]
-])
-
-QUEEN_BASE = np.array([
-    [-0.2, -0.1,  0.0,  0.0, -0.1, -0.2],
-    [-0.1,  0.1,  0.2,  0.2,  0.1, -0.1],
-    [ 0.0,  0.2,  0.3,  0.3,  0.2,  0.0],
-    [ 0.0,  0.2,  0.3,  0.3,  0.2,  0.0],
-    [-0.1,  0.1,  0.2,  0.2,  0.1, -0.1],
-    [-0.2, -0.1,  0.0,  0.0, -0.1, -0.2]
-])
-
-# King: opening/middlegame prefer castled/safe (edges), in endgame want central king (we keep simple small bias)
-KING_BASE = np.array([
-    [-0.4, -0.2,  0.0,  0.0, -0.2, -0.4],
-    [-0.2, -0.1,  0.1,  0.1, -0.1, -0.2],
-    [ 0.0,  0.1,  0.2,  0.2,  0.1,  0.0],
-    [ 0.0,  0.1,  0.2,  0.2,  0.1,  0.0],
-    [-0.2, -0.1,  0.1,  0.1, -0.1, -0.2],
-    [-0.4, -0.2,  0.0,  0.0, -0.2, -0.4]
-])
-
-FACTORS = {
-    'pawn':  0.10,   # pawn bonus ≈ piece_value * 0.10 * base_value  -> up to ~10 pts
-    'knight':0.08,   # knight ≈ 300 * 0.08 * base -> up to ~24 pts
-    'bishop':0.08,   # bishop ≈ 320 * 0.08 -> up to ~25 pts
-    'queen': 0.05,   # queen ≈ 900 * 0.05 -> up to ~45 pts (but base is small so actual smaller)
-    'king':  0.03    # king safety tiny
-}
-# ---------------------------------------------------------------------------
-# Coordinate helpers
-# ---------------------------------------------------------------------------
-
-def idx_to_cell(row: int, col: int) -> str:
-    """Convert (row, col) zero-indexed to board notation e.g. (0,0) -> 'A1'."""
-    return f"{COL_TO_FILE[col]}{row + 1}"
-
-def cell_to_idx(cell: str):
-    """Convert board notation e.g. 'A1' -> (row=0, col=0)."""
-    col = FILE_TO_COL[cell[0].upper()]
-    row = int(cell[1]) - 1
-    return row, col
-
-def in_bounds(board: np.ndarray, row: int, col: int) -> bool:
-    return 0 <= row < len(board) and 0 <= col < len(board[0])
-
-def is_white(piece: int) -> bool:
-    return piece in WHITE_PIECES
-
-def is_black(piece: int) -> bool:
-    return piece in BLACK_PIECES
-
-def same_side(p1: int, p2: int) -> bool:
-    return (is_white(p1) and is_white(p2)) or (is_black(p1) and is_black(p2))
-
-# ---------------------------------------------------------------------------
-# Move generation  
-# ---------------------------------------------------------------------------
-
-def in_check(board: np.ndarray, role_white : bool):
-    target_king = 5 if role_white else 10
-    king_pos = None
-    for r in range(len(board)):
-        for c in range(len(board[r])):
-            if board[r][c] == target_king:
-                king_pos = (r, c)
-                break
-        if king_pos is not None:
-            break
-
-    if king_pos is None:
-        # no king found (shouldn't happen in normal play) — treat as in check
-        return True
-
-    kr, kc = king_pos
-
-    #Pawn attack
-    if role_white:
-        for dr, dc in [(1, -1), (1, 1)]:
-            rr, cc = kr + dr, kc + dc
-            if in_bounds(board, rr, cc) and board[rr][cc] == 6:
-                return True
-    else:
-        for dr, dc in [(-1, -1), (-1, 1)]:
-            rr, cc = kr + dr, kc + dc
-            if in_bounds(board, rr, cc) and board[rr][cc] == 1:
-                return True
-    #Knight attack
-    for dr, dc in KNIGHT_MOVES:
-        rr, cc = kr + dr, kc + dc
-        if in_bounds(board, rr, cc):
-            if role_white and board[rr][cc] == 7:
-                return True
-            if not role_white and board[rr][cc] == 2:
-                return True
-    #King attack
-    for dr in (-1, 0, 1):
-        for dc in (-1, 0, 1):
-            if dr == 0 and dc == 0:
-                continue
-            rr, cc = kr + dr, kc + dc
-            if in_bounds(board, rr, cc):
-                if role_white and board[rr][cc] == 10:
-                    return True
-                if not role_white and board[rr][cc] == 5:
-                    return True
-    # orthogonal rays
-    for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
-        rr, cc = kr + dr, kc + dc
-        while in_bounds(board, rr, cc):
-            piece = board[rr][cc]
-            if piece != 0:
-                if role_white:
-                    if piece == 9:  # black queen (orthogonal or diagonal)
-                        return True
-                else:
-                    if piece == 4:  # white queen
-                        return True
-                break
-            rr += dr
-            cc += dc
-    
-    #diagnol rays
-    for dr, dc in [(-1,-1),(-1,1),(1,-1),(1,1)]:
-        rr, cc = kr + dr, kc + dc
-        while in_bounds(board, rr, cc):
-            piece = board[rr][cc]
-            if piece != 0:
-                if role_white:
-                    if piece == 8 or piece == 9:  # black bishop or queen
-                        return True
-                else:
-                    if piece == 3 or piece == 4:  # white bishop or queen
-                        return True
-                break
-            rr += dr
-            cc += dc
-    return False
-                    
-
-def get_pawn_moves(board: np.ndarray, row: int, col: int, piece: int,
-                   white_captured: list, black_captured: list):
-
-    moves = []
-
-    if is_white(piece):
-
-        # forward move
-        r = row + 1
-        c = col
-
-        
-        if in_bounds(board, r, c) and board[r][c] == 0:
-
-            board[row][col] = 0
-            board[r][c] = piece
-
-            if not in_check(board, True):
-
-                if row == len(board) - 2 and len(white_captured) != 0:
-                    for new_piece in set(white_captured):
-                        if new_piece != piece:  # promotion move
-                            moves.append((piece, row, col, r, c, new_piece))
-                  
-                elif row != len(board) - 2: 
-                    moves.append((piece, row, col, r, c, piece))
-
-            board[row][col] = piece
-            board[r][c] = 0
-
-
-        # capture right
-        r = row + 1
-        c = col + 1
-
-        if in_bounds(board, r, c) and is_black(board[r][c]):
-
-            captured = board[r][c]
-
-            board[row][col] = 0
-            board[r][c] = piece
-
-            if not in_check(board, True):
-
-                if row == len(board) - 2 and len(white_captured) != 0:
-                    for new_piece in set(white_captured):
-                        if new_piece != piece:  # promotion move
-                            moves.append((piece, row, col, r, c, new_piece))
-                elif row != len(board) - 2:  # normal capture without promotion
-                    moves.append((piece, row, col, r, c, piece))
-
-            board[row][col] = piece
-            board[r][c] = captured
-
-
-        # capture left
-        r = row + 1
-        c = col - 1
-
-        if in_bounds(board, r, c) and is_black(board[r][c]):
-
-            captured = board[r][c]
-
-            board[row][col] = 0
-            board[r][c] = piece
-
-            if not in_check(board, True):
-
-                if row == len(board) - 2 and len(white_captured) != 0:
-                    for new_piece in set(white_captured):
-                        if new_piece != piece:  # promotion move
-                            moves.append((piece, row, col, r, c, new_piece))
-                elif row != len(board) - 2: 
-                    moves.append((piece, row, col, r, c, piece))
-
-            board[row][col] = piece
-            board[r][c] = captured
-
-
-    else:  # black pawn
-
-        # forward move
-        r = row - 1
-        c = col
-
-        if in_bounds(board, r, c) and board[r][c] == 0:
-
-            board[row][col] = 0
-            board[r][c] = piece
-
-            if not in_check(board, False):
-
-                if row == 1 and len(black_captured) != 0:
-                    for new_piece in set(black_captured):
-                        if new_piece != piece:  # promotion move
-                            moves.append((piece, row, col, r, c, new_piece))
-                    moves.append((piece, row, col, r, c, piece))
-
-            board[row][col] = piece
-            board[r][c] = 0
-
-
-        # capture right
-        r = row - 1
-        c = col + 1
-
-        if in_bounds(board, r, c) and is_white(board[r][c]):
-
-            captured = board[r][c]
-
-            board[row][col] = 0
-            board[r][c] = piece
-
-            if not in_check(board, False):
-
-                if row == 1 and len(black_captured) != 0:
-                    for new_piece in set(black_captured):
-                        moves.append((piece, row, col, r, c, new_piece))
-                elif row != 1:
-                    moves.append((piece, row, col, r, c, piece))
-
-            board[row][col] = piece
-            board[r][c] = captured
-
-
-        # capture left
-        r = row - 1
-        c = col - 1
-
-        if in_bounds(board, r, c) and is_white(board[r][c]):
-
-            captured = board[r][c]
-
-            board[row][col] = 0
-            board[r][c] = piece
-
-            if not in_check(board, False):
-
-                if row == 1 and len(black_captured) != 0:
-                    for new_piece in set(black_captured):
-                        moves.append((piece, row, col, r, c, new_piece))
-                elif row != 1:
-                    moves.append((piece, row, col, r, c, piece))
-
-            board[row][col] = piece
-            board[r][c] = captured
-
-
-    return moves
-
-def get_knight_moves(board: np.ndarray, row: int, col: int, piece: int):
-    moves = []
-
-    for dst in KNIGHT_MOVES:
-        new_board = board.copy()
-        if(in_bounds(board, row + dst[0], col + dst[1])):
-            new_board[row + dst[0]][col + dst[1]] = piece 
-        new_board[row][col] = 0
-        if(in_bounds(board, row + dst[0], col + dst[1]) and not same_side(piece, board[row + dst[0]][col + dst[1]]) and not in_check(new_board, is_white(piece))):
-            moves.append((piece, row, col, row + dst[0], col + dst[1], piece))
-    return moves
-
-def get_sliding_moves(board, row, col, piece, directions):
-    moves = []
-    for dr, dc in directions:
-        r = row + dr
-        c = col + dc
-
-        while in_bounds(board, r, c):
-            target = board[r][c]
-            if same_side(piece, target):
-                break
-            new_board = board.copy()
-            new_board[row][col] = 0
-            new_board[r][c] = piece
-
-            if not in_check(new_board, is_white(piece)):
-                moves.append((piece, row, col, r, c, piece))
-            if target != 0:
-                break
-            r += dr
-            c += dc
-
-    return moves
-
-def get_bishop_moves(board: np.ndarray, row: int, col: int, piece: int):
-    diagonals = [(-1,-1),(-1,1),(1,-1),(1,1)]
-    return get_sliding_moves(board, row, col, piece, diagonals)
-
-def get_queen_moves(board: np.ndarray, row: int, col: int, piece: int):
-    all_dirs = [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
-    return get_sliding_moves(board, row, col, piece, all_dirs)
-
-def get_king_moves(board: np.ndarray, row: int, col: int, piece: int):
-    moves = []
-    dirs = [(0,1), (1,0), (1,1), (0,-1), (-1,0), (-1,1), (-1,-1), (1,-1)]
-    for d in dirs:
-        new_board = board.copy()
-        if(in_bounds(board, row + d[0], col + d[1])):
-            new_board[row + d[0]][col + d[1]] = piece 
-        new_board[row][col] = 0
-        if(in_bounds(board, row + d[0], col + d[1]) and not same_side(piece, board[row + d[0]][col + d[1]]) and not in_check(new_board, is_white(piece))):
-            moves.append((piece, row, col, row + d[0], col + d[1], piece))
-    return moves
-
-
-MOVE_GENERATORS = {
-    WHITE_PAWN:   get_pawn_moves,
-    WHITE_KNIGHT: get_knight_moves,
-    WHITE_BISHOP: get_bishop_moves,
-    WHITE_QUEEN:  get_queen_moves,
-    WHITE_KING:   get_king_moves,
-    BLACK_PAWN:   get_pawn_moves,
-    BLACK_KNIGHT: get_knight_moves,
-    BLACK_BISHOP: get_bishop_moves,
-    BLACK_QUEEN:  get_queen_moves,
-    BLACK_KING:   get_king_moves,
-}
-
-
-def get_all_moves(board: np.ndarray, playing_white: bool, white_captured: list, black_captured: list):
+def get_all_moves(board: np.ndarray, playing_white: bool, white_captured: list, black_captured: list, bb: Bitboards):
     """Return list of (piece_id, src_row, src_col, dst_row, dst_col) for all legal moves."""
     moves = []
     for row in range(len(board)):
         for col in range(len(board[row])):
             piece = board[row][col]
             if((playing_white and piece == 1) or (not playing_white and piece == 6)):
-                moves += get_pawn_moves(board, row, col, piece, white_captured, black_captured)
+                moves += get_pawn_moves(board, row, col, piece, white_captured, black_captured, bb)
             elif((playing_white and piece == 2) or (not playing_white and piece == 7)):
                 moves += get_knight_moves(board, row, col, piece)
             elif((playing_white and piece == 3) or (not playing_white and piece == 8)):
@@ -502,8 +79,8 @@ def score_move(board, move):
 # Board evaluation heuristic  (TODO: tune weights / add positional tables)
 # ---------------------------------------------------------------------------
 
-def is_terminal(board: np.ndarray, playing_white, white_captured, black_captured):
-    all_moves = get_all_moves(board, playing_white, white_captured, black_captured)
+def is_terminal(board: np.ndarray, playing_white, white_captured, black_captured, bb):
+    all_moves = get_all_moves(board, playing_white, white_captured, black_captured, bb)
     if(len(all_moves) == 0 and in_check(board, playing_white)):
         return 1 #checkmate 
     elif(len(all_moves) == 0 and not in_check(board, playing_white)):
@@ -603,21 +180,31 @@ def format_move(piece: int, src_row: int, src_col: int,
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
-def minimax(board, alpha, beta, depth, playing_white, white_captured, black_captured):
-    terminal_state = is_terminal(board, playing_white, white_captured, black_captured)
+def minimax(board, alpha, beta, depth, playing_white, white_captured, black_captured, bb):
+    terminal_state = is_terminal(board, playing_white, white_captured, black_captured, bb)
     if terminal_state == 1:
+        # Find the king position to remove for evaluation
         king_row = -1
         king_col = -1
+        target_king = 5 if playing_white else 10
         for row in range(len(board)):
             for col in range(len(board[row])):
-                piece = board[row][col]
-                if((playing_white and piece == 5) or (not playing_white and piece == 10)):
+                if board[row][col] == target_king:
                     king_row = row 
                     king_col = col 
-        board[king_row][king_col] = 0
-        eval = evaluate(board)*depth
-        board[king_row][king_col] = 5 if playing_white else 10
-        return eval
+                    break
+            if king_row != -1:
+                break
+        
+        # Safety check: only modify board if king was found
+        if king_row != -1 and king_col != -1:
+            board[king_row][king_col] = 0
+            eval = evaluate(board)*depth
+            board[king_row][king_col] = target_king
+            return eval
+        else:
+            # If king somehow not found, return board evaluation as-is
+            return evaluate(board)
     
     elif(depth == 0 or terminal_state == 2):
         return evaluate(board)   
@@ -625,12 +212,12 @@ def minimax(board, alpha, beta, depth, playing_white, white_captured, black_capt
     if playing_white:
         max_eval = float('-inf')
 
-        moves = get_all_moves(board, playing_white, white_captured, black_captured)
+        moves = get_all_moves(board, playing_white, white_captured, black_captured, bb)
         moves.sort(key=lambda move: score_move(board, move), reverse=True)
         
         for move in moves:
             captured = make_move(board, move, white_captured, black_captured)
-            eval = minimax(board, alpha, beta, depth - 1, not playing_white, white_captured, black_captured)
+            eval = minimax(board, alpha, beta, depth - 1, not playing_white, white_captured, black_captured, bb)
             unmake_move(board, move, captured, white_captured, black_captured)
             
             max_eval = max(max_eval, eval)
@@ -641,17 +228,17 @@ def minimax(board, alpha, beta, depth, playing_white, white_captured, black_capt
                 break
         
         return max_eval
-    
+        
     
     else:
         min_eval = float('inf')
 
-        moves = get_all_moves(board, playing_white, white_captured, black_captured)
+        moves = get_all_moves(board, playing_white, white_captured, black_captured, bb)
         moves.sort(key=lambda move: score_move(board, move), reverse=True)
         
         for move in moves:
             captured = make_move(board, move, white_captured, black_captured)
-            eval = minimax(board, alpha, beta, depth - 1, not playing_white, white_captured, black_captured)
+            eval = minimax(board, alpha, beta, depth - 1, not playing_white, white_captured, black_captured, bb)
             unmake_move(board, move, captured, white_captured, black_captured)
 
             min_eval = min(min_eval, eval)
@@ -704,7 +291,7 @@ def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured
     None if no legal moves are available.
     """
 
-    # bb = board_to_bitboards(board)
+    bb = Bitboards.from_board_array(board)
 
     if(playing_white):
         best_value = float('-inf')
@@ -716,13 +303,13 @@ def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured
     beta = float('inf')
 
 
-    all_moves = get_all_moves(board, playing_white, white_captured, black_captured)
+    all_moves = get_all_moves(board, playing_white, white_captured, black_captured, bb)
     all_moves.sort(key=lambda move: score_move(board, move), reverse=playing_white)  # Sort moves by heuristic score
     for move in all_moves:
         
         captured = make_move(board, move, white_captured, black_captured)
         
-        value = minimax(board, alpha, beta, 4, not playing_white, white_captured, black_captured)
+        value = minimax(board, alpha, beta, 4, not playing_white, white_captured, black_captured, bb)
 
         unmake_move(board, move, captured, white_captured, black_captured)
         
