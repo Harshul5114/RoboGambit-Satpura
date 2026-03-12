@@ -35,4 +35,4 @@ start_board = np.array(
 
 
 
-run_ui(start_board, playing_white= True)
+run_ui(start_board, playing_white= False)

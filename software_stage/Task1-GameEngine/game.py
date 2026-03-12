@@ -33,6 +33,35 @@ from constants import *
 from moves import *
 sys.setrecursionlimit(10**5)
 
+
+# TT Flags
+EXACT = 0
+LOWERBOUND = 1
+UPPERBOUND = 2
+
+# The Transposition Table
+TT = {} 
+
+# Zobrist Keys (Initialize these once at the start of your program)
+import random
+random.seed(42) # Consistent hashing
+ZOBRIST_TABLE = {pid: [random.getrandbits(64) for _ in range(36)] for pid in range(1, 11)}
+ZOBRIST_SIDE = random.getrandbits(64)
+
+def get_hash(bb: Bitboards, playing_white: bool):
+    """Calculates the full hash from scratch. Only used once at the root."""
+    h = 0
+    for piece_id in range(1, 11):
+        pieces = bb.get_bb(piece_id)
+        while pieces:
+            sq = Bitboards.lsb(pieces)
+            h ^= ZOBRIST_TABLE[piece_id][sq]
+            pieces &= pieces - 1
+    
+    if not playing_white:
+        h ^= ZOBRIST_SIDE
+    return h
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -189,74 +218,107 @@ def format_move(piece: int, src_row: int, src_col: int,
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
-def minimax(alpha, beta, depth, playing_white, white_captured, black_captured, bb):
+def minimax(alpha, beta, depth, playing_white, white_captured, black_captured, bb, current_hash):
+    """
+    Complete Minimax with Alpha-Beta Pruning and Transposition Table.
+    """
+    alpha_orig = alpha
 
+    # 1. Transposition Table Lookup
+    if current_hash in TT:
+        entry = TT[current_hash]
+        if entry['depth'] >= depth:
+            if entry['flag'] == EXACT:
+                return entry['value']
+            elif entry['flag'] == LOWERBOUND:
+                alpha = max(alpha, entry['value'])
+            elif entry['flag'] == UPPERBOUND:
+                beta = min(beta, entry['value'])
+            
+            if alpha >= beta:
+                return entry['value']
+
+    # 2. Terminal State Handling
     terminal_state = is_terminal(None, playing_white, white_captured, black_captured, bb)
-
+    
     if terminal_state == 1:
-        # checkmate
+        # Checkmate: If it's your turn and you're mated, you lose. 
+        # We add/subtract depth to prefer the shortest path to mate.
         return -100000 - depth if playing_white else 100000 + depth
 
     if terminal_state == 2:
+        # Stalemate is a draw (0), not the material score.
         return 0
     
     if depth == 0:
+        # At leaf nodes, return the static evaluation
         return evaluate(bb)
-    
-    if 
 
+    # 3. Move Generation and Ordering
     moves = get_all_moves(playing_white, white_captured, black_captured, bb)
-
-    # move ordering
     moves.sort(key=lambda move: score_move(bb, move), reverse=True)
 
     if playing_white:
-
         max_eval = float('-inf')
-
         for move in moves:
+            piece, sr, sc, dr, dc, new_piece = move
+            src_idx = sr * 6 + sc
+            dst_idx = dr * 6 + dc
 
+            # Calculate Incremental Hash
+            # 1. Remove piece from source, 2. Place piece at dest, 3. Toggle turn
+            next_hash = current_hash ^ ZOBRIST_TABLE[piece][src_idx] ^ ZOBRIST_TABLE[piece][dst_idx] ^ ZOBRIST_SIDE
+            
+            # 4. If capture, XOR out the captured piece
+            captured_pid = bb.get_piece_at(dr, dc) # Helper needed to identify piece at dest
+            if captured_pid:
+                next_hash ^= ZOBRIST_TABLE[captured_pid][dst_idx]
+
+            # Execute move
             captured = make_temp_move(bb, *move)
-
-            val = minimax(alpha, beta, depth-1,
-                          False, white_captured, black_captured, bb)
-
+            val = minimax(alpha, beta, depth - 1, False, white_captured, black_captured, bb, next_hash)
             undo_temp_move(bb, *move, captured)
 
-            if val > max_eval:
-                max_eval = val
-
-            if val > alpha:
-                alpha = val
-
+            max_eval = max(max_eval, val)
+            alpha = max(alpha, val)
             if beta <= alpha:
-                break
-
-        return max_eval
+                break # Alpha-Beta Pruning
+        res_val = max_eval
 
     else:
-
         min_eval = float('inf')
-
         for move in moves:
+            piece, sr, sc, dr, dc, new_piece = move
+            src_idx = sr * 6 + sc
+            dst_idx = dr * 6 + dc
+
+            next_hash = current_hash ^ ZOBRIST_TABLE[piece][src_idx] ^ ZOBRIST_TABLE[piece][dst_idx] ^ ZOBRIST_SIDE
+            
+            captured_pid = bb.get_piece_at(dr, dc)
+            if captured_pid:
+                next_hash ^= ZOBRIST_TABLE[captured_pid][dst_idx]
 
             captured = make_temp_move(bb, *move)
-
-            val = minimax(alpha, beta, depth-1,
-                          True, white_captured, black_captured, bb)
-
+            val = minimax(alpha, beta, depth - 1, True, white_captured, black_captured, bb, next_hash)
             undo_temp_move(bb, *move, captured)
 
-            if val < min_eval:
-                min_eval = val
-
-            if val < beta:
-                beta = val
-
+            min_eval = min(min_eval, val)
+            beta = min(beta, val)
             if beta <= alpha:
                 break
+        res_val = min_eval
 
-        return min_eval
+    # 4. Store Result in Transposition Table
+    new_entry = {'depth': depth, 'value': res_val}
+    if res_val <= alpha_orig:
+        new_entry['flag'] = UPPERBOUND
+    elif res_val >= beta:
+        new_entry['flag'] = LOWERBOUND
+    else:
+        new_entry['flag'] = EXACT
+        
+    TT[current_hash] = new_entry
+    return res_val
 
 
 # we need a mechanism to take into account stalemate conditions
@@ -283,22 +345,7 @@ def get_best_move(board: np.ndarray, playing_white: bool = True) -> Optional[str
 
 
 def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured: list = None, black_captured: list = None) -> Optional[str]:
-    """
-    Given the current board state, return the best move string.
-
-    Parameters
-    ----------
-    board        : 6×6 NumPy array representing the current game state.
-    playing_white: True if the engine is playing as White, False for Black.
-   
-
-    Returns
-    -------
-    Move string in the format '<piece_id>:<src_cell>-><dst_cell>', or
-    None if no legal moves are available.
-
-    """
-
+    
     if white_captured is None:
         white_captured = []
 
@@ -307,23 +354,35 @@ def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured
 
     bb = Bitboards.from_board_array(board)
 
-    if(playing_white):
+    # 1. Initialize the hash for the starting position
+    current_hash = get_hash(bb, playing_white)
+
+    if playing_white:
         best_value = float('-inf')
     else:
         best_value = float('inf')
+        
     best_move = None
-    
     alpha = float('-inf')
     beta = float('inf')
 
-
     all_moves = get_all_moves(playing_white, white_captured, black_captured, bb)
-    all_moves.sort(key=lambda move: score_move(bb, move), reverse=True)  # Sort moves by heuristic score
+    all_moves.sort(key=lambda move: score_move(bb, move), reverse=True)
+    
     for move in all_moves:
+        piece, sr, sc, dr, dc, new_piece = move
         
         captured = make_temp_move(bb, *move)
         
-        value = minimax(alpha, beta, 6, not playing_white, white_captured, black_captured, bb)
+        # Calculate incremental hash for root moves
+        src_idx = sr * 6 + sc
+        dst_idx = dr * 6 + dc
+        next_hash = current_hash ^ ZOBRIST_SIDE ^ ZOBRIST_TABLE[piece][src_idx] ^ ZOBRIST_TABLE[new_piece][dst_idx]
+        if captured != 0:
+            next_hash ^= ZOBRIST_TABLE[captured][dst_idx]
+        
+        # Notice we pass next_hash into minimax
+        value = minimax(alpha, beta, 6, not playing_white, white_captured, black_captured, bb, next_hash)
 
         undo_temp_move(bb, *move, captured)
         
@@ -331,42 +390,35 @@ def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured
             best_value = value
             best_move = move
             
-        if(playing_white):
+        if playing_white:
             alpha = max(alpha, value)
         else:
             beta = min(beta, value)
     
-    return None if not best_move else format_move(*best_move) 
-
-
-
-
+    return None if not best_move else format_move(*best_move)
 
 # ---------------------------------------------------------------------------
 # Quick smoke-test  
 # ---------------------------------------------------------------------------
-
 if __name__ == "__main__":
-    # Example: standard-ish starting position on a 6x6 board
-    # White pieces on rows 4-5, Black pieces on rows 0-1
-    initial_board = np.array([
-        [ 2,  3,  4,  5,  3,  2],   # Row 1 (A1–F1) — White back rank
-        [ 1,  1,  1,  1,  1,  1],   # Row 2         — White pawns
-        [ 0,  0,  0,  0,  0,  0],   # Row 3
-        [ 0,  0,  0,  0,  0,  0],   # Row 4
-        [ 6,  6,  6,  6,  6,  6],   # Row 5         — Black pawns
-        [ 7,  8,  9, 10,  8,  7],   # Row 6 (A6–F6) — Black back rank
+    # Test Case: White to move
+    # Setup: White has a Queen and King, Black has a lone King.
+    # White should look for a move that pressures the Black King.
+    winning_white_board = np.array([
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 4, 0, 0, 0], # White Queen at C3
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0,0, 0], # Black King at D5
+        [10, 0, 0, 5, 0, 0]  # White King at D6
     ], dtype=int)
 
-    initial_board_2 = np.array([
-        [0, 0, 0, 3, 5, 0],
-        [1, 3, 4, 0, 0, 1],
-        [0, 7, 1, 8, 0, 6],
-        [0, 0, 2, 3, 0, 0],
-        [0, 0, 0, 9, 0, 0],
-        [0, 0, 10, 7, 0, 0]
-    ])
-
-    print("Board:\n", initial_board_2)
-    move = _get_best_move(initial_board_2, playing_white=False)
-    print("Best move for Black:", move)
+    print("--- Test Case: Bot Playing White ---")
+    print("Board State:")
+    print(winning_white_board)
+    
+    # We pass playing_white=True
+    # The engine will now maximize the evaluation score
+    move = get_best_move(winning_white_board, playing_white=True)
+    
+    print("\nBest move for White:", move)

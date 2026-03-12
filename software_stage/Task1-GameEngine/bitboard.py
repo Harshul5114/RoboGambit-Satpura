@@ -179,6 +179,14 @@ class Bitboards:
         self.set_bb(new_piece, pb_new | dst_bit)
 
         return captured
+    
+    def get_piece_at(self, r: int, c: int) -> int:
+        """Return piece id at given square (0 if empty)."""
+        sq = self.rc_to_index(r, c)
+        for pid in range(1, 11):
+            if (self.get_bb(pid) >> sq) & 1:
+                return pid
+        return 0
 
 
 
