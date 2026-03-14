@@ -1,5 +1,5 @@
 import numpy as np
-from ui import run_ui
+from ui import run_ui, run_auto_play
 # Board: 6x6 NumPy array
 #   - 0  : Empty cell
 #   - 1  : White Pawn
@@ -16,9 +16,9 @@ board = np.array([
     [0, 0, 0, 0, 0, 5],
     [0, 0, 0, 0, 4, 0],
     [0, 0, 1, 0, 0, 0],
-    [0, 0, 0, 7, 0, 0],
-    [0, 0, 0, 0, 0, 0],
-    [10, 0, 0, 0, 0, 0]
+    [0, 0, 0, 6, 0, 0],
+    [10, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0]
 ])
 
 start_board = np.array(
@@ -33,6 +33,4 @@ start_board = np.array(
 )
 
 
-
-
-run_ui(start_board, playing_white= False)
+run_auto_play(start_board)

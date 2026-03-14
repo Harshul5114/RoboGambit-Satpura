@@ -1,5 +1,6 @@
 import numpy as np
 from constants import *
+from bitboard import *
 
 def idx_to_cell(row: int, col: int) -> str:
     """Convert (row, col) zero-indexed to board notation e.g. (0,0) -> 'A1'."""
@@ -23,149 +24,37 @@ def is_black(piece: int) -> bool:
 def same_side(p1: int, p2: int) -> bool:
     return (is_white(p1) and is_white(p2)) or (is_black(p1) and is_black(p2))
 
+
 def in_check(bb, role_white):
-
-    # king bitboard
     king_bb = bb.WK if role_white else bb.BK
-
-    if king_bb == 0:
-        return True
-
-    king_sq = king_bb.bit_length() - 1
-    kr = king_sq // BOARD_FILES
-    kc = king_sq % BOARD_FILES
-
-    # -----------------
-    # pawn attacks
-    # -----------------
-# pawn attacks
-
-    if role_white:
-
-        pawns = bb.BP
-
-        for dc in (-1, 1):
-
-            r = kr + 1
-            c = kc + dc
-
-            if 0 <= r < BOARD_RANKS and 0 <= c < BOARD_FILES:
-
-                sq = r * BOARD_FILES + c
-
-                if pawns & (1 << sq):
-                    return True
-
-    else:
-
-        pawns = bb.WP
-
-        for dc in (-1, 1):
-
-            r = kr - 1
-            c = kc + dc
-
-            if 0 <= r < BOARD_RANKS and 0 <= c < BOARD_FILES:
-
-                sq = r * BOARD_FILES + c
-
-                if pawns & (1 << sq):
-                    return True
-    # -----------------
-    # knight attacks
-    # -----------------
-
-    enemy_knights = bb.BN if role_white else bb.WN
-
-    for dr, dc in KNIGHT_MOVES:
-
-        r = kr + dr
-        c = kc + dc
-
-        if 0 <= r < BOARD_RANKS and 0 <= c < BOARD_FILES:
-
-            sq = r * BOARD_FILES + c
-
-            if enemy_knights & (1 << sq):
-                return True
-
-    # -----------------
-    # king attacks
-    # -----------------
-
-    enemy_king = bb.BK if role_white else bb.WK
-
-    for dr in (-1,0,1):
-        for dc in (-1,0,1):
-
-            if dr == 0 and dc == 0:
-                continue
-
-            r = kr + dr
-            c = kc + dc
-
-            if 0 <= r < BOARD_RANKS and 0 <= c < BOARD_FILES:
-
-                sq = r * BOARD_FILES + c
-
-                if enemy_king & (1 << sq):
-                    return True
-
-    # occupancy
+    if not king_bb: return True
+    king_sq = Bitboards.lsb(king_bb)
     occ = bb.all_occ()
+    
+    # 1. Check Knights and Pawns (Instant)
+    enemy_knights = bb.BN if role_white else bb.WN
+    if KNIGHT_ATTACKS[king_sq] & enemy_knights: return True
 
-    # -----------------
-    # orthogonal rays
-    # -----------------
+    enemy_pawns = bb.BP if role_white else bb.WP
+    pawn_attacks = WHITE_PAWN_ATTACKS[king_sq] if role_white else BLACK_PAWN_ATTACKS[king_sq]
+    if pawn_attacks & enemy_pawns: return True
+    
+    # 2. Check Queen/Bishop diagonals (Instant)
+    # Check diagonals (Bishop + Queen)
+    enemy_diagonals = (bb.BB | bb.BQ) if role_white else (bb.WB | bb.WQ)
+    diag_attacks = 0
+    for i in range(4, 8): diag_attacks |= get_ray_attacks(king_sq, occ, i)
+    if diag_attacks & enemy_diagonals: return True
+    
+    # Check orthogonals (Queen)
+    enemy_queens = bb.BQ if role_white else bb.WQ
+    ortho_attacks = 0
+    for i in range(0, 4): ortho_attacks |= get_ray_attacks(king_sq, occ, i)
+    if ortho_attacks & enemy_queens: return True
 
-    enemy_queen = bb.BQ if role_white else bb.WQ
-
-    for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
-
-        r = kr + dr
-        c = kc + dc
-
-        while 0 <= r < BOARD_RANKS and 0 <= c < BOARD_FILES:
-
-            sq = r * BOARD_FILES + c
-            bit = 1 << sq
-
-            if occ & bit:
-
-                if enemy_queen & bit:
-                    return True
-
-                break
-
-            r += dr
-            c += dc
-
-    # -----------------
-    # diagonal rays
-    # -----------------
-
-    enemy_bishop = bb.BB if role_white else bb.WB
-    enemy_queen = bb.BQ if role_white else bb.WQ
-
-    for dr, dc in [(-1,-1),(-1,1),(1,-1),(1,1)]:
-
-        r = kr + dr
-        c = kc + dc
-
-        while 0 <= r < BOARD_RANKS and 0 <= c < BOARD_FILES:
-
-            sq = r * BOARD_FILES + c
-            bit = 1 << sq
-
-            if occ & bit:
-
-                if (enemy_bishop | enemy_queen) & bit:
-                    return True
-
-                break
-
-            r += dr
-            c += dc
+    # 3. Check King (Instant)
+    enemy_king = bb.BK if role_white else bb.WK
+    if KING_ATTACKS[king_sq] & enemy_king: return True
 
     return False
 

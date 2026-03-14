@@ -31,7 +31,12 @@ import sys
 from utils import *
 from constants import *
 from moves import *
+
 sys.setrecursionlimit(10**5)
+
+import cProfile
+import pstats
+
 
 
 # TT Flags
@@ -40,6 +45,7 @@ LOWERBOUND = 1
 UPPERBOUND = 2
 
 # The Transposition Table
+TT_MAX_SIZE = 200000
 TT = {} 
 
 # Zobrist Keys (Initialize these once at the start of your program)
@@ -115,11 +121,9 @@ def score_move(bb, move):
     dst_bit = Bitboards.bit_of(dr, dc)
 
     captured = None
-
-    for pid in range(1,11):
-        if bb.get_bb(pid) & dst_bit:
-            captured = pid
-            break
+    
+    if dst_bit & bb.all_occ():
+        captured = bb.get_piece_at(dr, dc)
 
     score = 0
 
@@ -134,8 +138,7 @@ def score_move(bb, move):
 # Board evaluation heuristic  (TODO: tune weights / add positional tables)
 # ---------------------------------------------------------------------------
 
-def is_terminal(board: np.ndarray, playing_white, white_captured, black_captured, bb):
-    all_moves = get_all_moves(playing_white, white_captured, black_captured, bb)
+def is_terminal(playing_white, white_captured, black_captured, bb, all_moves):
     if(len(all_moves) == 0 and in_check(bb, playing_white)):
         return 1 #checkmate 
     elif(len(all_moves) == 0 and not in_check(bb, playing_white)):
@@ -144,64 +147,107 @@ def is_terminal(board: np.ndarray, playing_white, white_captured, black_captured
         return 0
         
 def pst_bonus(piece, row, col):
-    """Return signed positional bonus (positive for White, negative for Black)."""
-    # choose absolute piece value for sign handling
-    is_white_piece = is_white(piece)
-
-    sign = 1 if is_white_piece else -1
-
+    """
+    Returns the positional bonus for a piece. 
+    Positive for White, negative for Black.
+    """
+    is_w = is_white(piece)
+    sign = 1 if is_w else -1
+    
+    # Get the multiplier weight for this specific piece type
+    weight = PST_WEIGHTS[piece]
+    
+    # Use 5 - row for Black to ensure symmetry (White pushes up, Black pushes down)
+    r_idx = row if is_w else (5 - row)
+    
+    # Select the base table based on piece type
     if piece in (WHITE_PAWN, BLACK_PAWN):
-        base = PAWN_BASE[row, col] if is_white_piece else PAWN_BASE[::-1, :][row, col]
-        return sign * PIECE_VALUES[WHITE_PAWN] * FACTORS['pawn'] * base
+        base_val = PAWN_BASE[r_idx, col]
+        
+    elif piece in (WHITE_KNIGHT, BLACK_KNIGHT):
+        base_val = KNIGHT_BASE[r_idx, col]
+        
+    elif piece in (WHITE_BISHOP, BLACK_BISHOP):
+        base_val = BISHOP_BASE[r_idx, col]
+        
+    elif piece in (WHITE_QUEEN, BLACK_QUEEN):
+        base_val = QUEEN_BASE[r_idx, col]
+        
+    elif piece in (WHITE_KING, BLACK_KING):
+        base_val = KING_BASE[r_idx, col]
 
-    if piece in (WHITE_KNIGHT, BLACK_KNIGHT):
-        base = KNIGHT_BASE[row, col] if is_white_piece else KNIGHT_BASE[::-1, :][row, col]
-        return sign * PIECE_VALUES[WHITE_KNIGHT] * FACTORS['knight'] * base
+            
+    else:
+        return 0.0
 
-    if piece in (WHITE_BISHOP, BLACK_BISHOP):
-        base = BISHOP_BASE[row, col] if is_white_piece else BISHOP_BASE[::-1, :][row, col]
-        return sign * PIECE_VALUES[WHITE_BISHOP] * FACTORS['bishop'] * base
+    # Calculate final bonus: (Table Value * Piece Weight)
+    # Result is an integer (standard for chess engines)
+    return sign * int(base_val * weight)
 
-    if piece in (WHITE_QUEEN, BLACK_QUEEN):
-        base = QUEEN_BASE[row, col] if is_white_piece else QUEEN_BASE[::-1, :][row, col]
-        return sign * PIECE_VALUES[WHITE_QUEEN] * FACTORS['queen'] * base
-
-    if piece in (WHITE_KING, BLACK_KING):
-        base = KING_BASE[row, col] if is_white_piece else KING_BASE[::-1, :][row, col]
-        return sign * 200 * FACTORS['king'] * base
-
-    return 0.0        
-
-def evaluate(bb: Bitboards):
-
+def evaluate(bb: Bitboards) -> int:
+    """
+    Evaluates the board state for 6x6 Chess.
+    Positive = White advantage, Negative = Black advantage.
+    """
     score = 0
+    
+    # 1. Map piece types to their respective bitboards and PST tables
+    # Note: We use the base tables from constants.py
+    piece_map = {
+        WHITE_PAWN: (bb.WP, PAWN_BASE),
+        WHITE_KNIGHT: (bb.WN, KNIGHT_BASE),
+        WHITE_BISHOP: (bb.WB, BISHOP_BASE),
+        WHITE_QUEEN: (bb.WQ, QUEEN_BASE),
+        WHITE_KING: (bb.WK, KING_BASE),
+        BLACK_PAWN: (bb.BP, PAWN_BASE),
+        BLACK_KNIGHT: (bb.BN, KNIGHT_BASE),
+        BLACK_BISHOP: (bb.BB, BISHOP_BASE),
+        BLACK_QUEEN: (bb.BQ, QUEEN_BASE),
+        BLACK_KING: (bb.BK, KING_BASE)
+    }
 
-    piece_map = [
-        (WHITE_PAWN, bb.WP),
-        (WHITE_KNIGHT, bb.WN),
-        (WHITE_BISHOP, bb.WB),
-        (WHITE_QUEEN, bb.WQ),
-        (WHITE_KING, bb.WK),
-        (BLACK_PAWN, bb.BP),
-        (BLACK_KNIGHT, bb.BN),
-        (BLACK_BISHOP, bb.BB),
-        (BLACK_QUEEN, bb.BQ),
-        (BLACK_KING, bb.BK),
-    ]
+    # 2. Determine Game Phase
+    # In 6x6, the board is cramped. Endgame starts when few pieces remain.
+    # We count bits in the 'all occupancy' bitboard.
+    total_pieces = bin(bb.all_occ()).count('1')
+    is_endgame = total_pieces <= 8  # Threshold for 6x6 board
 
-    for piece, bitboard in piece_map:
-
-        pieces = bitboard
-
-        while pieces:
-
-            sq = Bitboards.lsb(pieces)
+    # 3. Main Evaluation Loop
+    for piece_id, (bitboard, pst_base) in piece_map.items():
+        if bitboard == 0:
+            continue
+            
+        is_w = is_white(piece_id)
+        material_val = PIECE_VALUES[piece_id]
+        weight = PST_WEIGHTS[piece_id]
+        
+        # Iterate over every piece of this type using bitwise operations
+        temp_bb = bitboard
+        while temp_bb:
+            sq = Bitboards.lsb(temp_bb)
             r, c = Bitboards.index_to_rc(sq)
+            
+            # Add Material Value
+            score += material_val
+            
+            pst_b = pst_bonus(piece_id, r, c)
+            
+            # Special King Logic: In endgame, King should be central/active.
+            # We invert the penalty of the standard KING_BASE.
+            if (piece_id == WHITE_KING or piece_id == BLACK_KING) and is_endgame:
+                pst_b = -pst_b
+            
+            score += pst_b if is_w else -pst_b
+            
+            # Clear the Least Significant Bit to move to the next piece
+            temp_bb &= temp_bb - 1
 
-            score += PIECE_VALUES[piece]
-            score += pst_bonus(piece, r, c)
 
-            pieces &= pieces - 1
+
+    # 4. Global Bonuses
+    # Bishop pair is very strong on a 6x6 board because they cover both colors.
+    if bin(bb.WB).count('1') >= 2: score += 30
+    if bin(bb.BB).count('1') >= 2: score -= 30
 
     return score
 # ---------------------------------------------------------------------------
@@ -218,11 +264,21 @@ def format_move(piece: int, src_row: int, src_col: int,
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
-def minimax(alpha, beta, depth, playing_white, white_captured, black_captured, bb, current_hash):
+def minimax(
+             alpha: int,
+             beta: int,
+             depth: int, 
+             playing_white: bool, 
+             white_captured: list, 
+             black_captured: list, 
+             bb: Bitboards, 
+             current_hash: int
+             ):
     """
     Complete Minimax with Alpha-Beta Pruning and Transposition Table.
     """
     alpha_orig = alpha
+    beta_orig = beta
 
     # 1. Transposition Table Lookup
     if current_hash in TT:
@@ -238,8 +294,16 @@ def minimax(alpha, beta, depth, playing_white, white_captured, black_captured, b
             if alpha >= beta:
                 return entry['value']
 
-    # 2. Terminal State Handling
-    terminal_state = is_terminal(None, playing_white, white_captured, black_captured, bb)
+    if depth == 0:
+        # At leaf nodes, return the static evaluation
+        return evaluate(bb)
+
+    
+    moves = get_all_moves(playing_white, white_captured, black_captured, bb)
+    moves.sort(key=lambda move: score_move(bb, move), reverse=True)
+
+    # Terminal State Handling
+    terminal_state = is_terminal(playing_white, white_captured, black_captured, bb, moves)
     
     if terminal_state == 1:
         # Checkmate: If it's your turn and you're mated, you lose. 
@@ -249,14 +313,7 @@ def minimax(alpha, beta, depth, playing_white, white_captured, black_captured, b
     if terminal_state == 2:
         # Stalemate is a draw (0), not the material score.
         return 0
-    
-    if depth == 0:
-        # At leaf nodes, return the static evaluation
-        return evaluate(bb)
 
-    # 3. Move Generation and Ordering
-    moves = get_all_moves(playing_white, white_captured, black_captured, bb)
-    moves.sort(key=lambda move: score_move(bb, move), reverse=True)
 
     if playing_white:
         max_eval = float('-inf')
@@ -267,16 +324,18 @@ def minimax(alpha, beta, depth, playing_white, white_captured, black_captured, b
 
             # Calculate Incremental Hash
             # 1. Remove piece from source, 2. Place piece at dest, 3. Toggle turn
-            next_hash = current_hash ^ ZOBRIST_TABLE[piece][src_idx] ^ ZOBRIST_TABLE[piece][dst_idx] ^ ZOBRIST_SIDE
+            next_hash = current_hash ^ ZOBRIST_TABLE[piece][src_idx] ^ ZOBRIST_TABLE[new_piece][dst_idx] ^ ZOBRIST_SIDE
             
             # 4. If capture, XOR out the captured piece
-            captured_pid = bb.get_piece_at(dr, dc) # Helper needed to identify piece at dest
+            captured_pid = bb.get_piece_at(dr, dc) # *Helper needed to identify piece at dest
             if captured_pid:
                 next_hash ^= ZOBRIST_TABLE[captured_pid][dst_idx]
 
-            # Execute move
+            # Execute white move and recurse
             captured = make_temp_move(bb, *move)
+            black_captured.append(captured) if captured else None
             val = minimax(alpha, beta, depth - 1, False, white_captured, black_captured, bb, next_hash)
+            black_captured.pop() if captured else None
             undo_temp_move(bb, *move, captured)
 
             max_eval = max(max_eval, val)
@@ -292,14 +351,16 @@ def minimax(alpha, beta, depth, playing_white, white_captured, black_captured, b
             src_idx = sr * 6 + sc
             dst_idx = dr * 6 + dc
 
-            next_hash = current_hash ^ ZOBRIST_TABLE[piece][src_idx] ^ ZOBRIST_TABLE[piece][dst_idx] ^ ZOBRIST_SIDE
+            next_hash = current_hash ^ ZOBRIST_TABLE[piece][src_idx] ^ ZOBRIST_TABLE[new_piece][dst_idx] ^ ZOBRIST_SIDE
             
             captured_pid = bb.get_piece_at(dr, dc)
             if captured_pid:
                 next_hash ^= ZOBRIST_TABLE[captured_pid][dst_idx]
 
             captured = make_temp_move(bb, *move)
+            white_captured.append(captured) if captured else None
             val = minimax(alpha, beta, depth - 1, True, white_captured, black_captured, bb, next_hash)
+            white_captured.pop() if captured else None
             undo_temp_move(bb, *move, captured)
 
             min_eval = min(min_eval, val)
@@ -312,10 +373,13 @@ def minimax(alpha, beta, depth, playing_white, white_captured, black_captured, b
     new_entry = {'depth': depth, 'value': res_val}
     if res_val <= alpha_orig:
         new_entry['flag'] = UPPERBOUND
-    elif res_val >= beta:
+    elif res_val >= beta_orig:
         new_entry['flag'] = LOWERBOUND
     else:
         new_entry['flag'] = EXACT
+
+    if len(TT) >= TT_MAX_SIZE:
+        TT.clear()
         
     TT[current_hash] = new_entry
     return res_val
@@ -341,7 +405,19 @@ def get_best_move(board: np.ndarray, playing_white: bool = True) -> Optional[str
     Move string in the format '<piece_id>:<src_cell>-><dst_cell>', or
     None if no legal moves are available.
     """
-    return _get_best_move(board, playing_white, [], [])
+    white_captured = [2, 2, 3, 3, 4, 5]
+    black_captured = [7, 7, 8, 8, 9, 10]
+
+    #scan board to find captured pieces
+    for r in range(6):
+        for c in range(6):
+            piece = board[r][c]
+            if piece in white_captured:
+                white_captured.remove(piece)
+            elif piece in black_captured:
+                black_captured.remove(piece)
+
+    return _get_best_move(board, playing_white, white_captured, black_captured)
 
 
 def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured: list = None, black_captured: list = None) -> Optional[str]:
@@ -373,7 +449,7 @@ def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured
         piece, sr, sc, dr, dc, new_piece = move
         
         captured = make_temp_move(bb, *move)
-        
+
         # Calculate incremental hash for root moves
         src_idx = sr * 6 + sc
         dst_idx = dr * 6 + dc
@@ -382,7 +458,7 @@ def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured
             next_hash ^= ZOBRIST_TABLE[captured][dst_idx]
         
         # Notice we pass next_hash into minimax
-        value = minimax(alpha, beta, 6, not playing_white, white_captured, black_captured, bb, next_hash)
+        value = minimax(alpha, beta, 5, not playing_white, white_captured, black_captured, bb, next_hash)
 
         undo_temp_move(bb, *move, captured)
         
@@ -404,14 +480,17 @@ if __name__ == "__main__":
     # Test Case: White to move
     # Setup: White has a Queen and King, Black has a lone King.
     # White should look for a move that pressures the Black King.
-    winning_white_board = np.array([
-        [0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0],
-        [0, 0, 4, 0, 0, 0], # White Queen at C3
-        [0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0,0, 0], # Black King at D5
-        [10, 0, 0, 5, 0, 0]  # White King at D6
-    ], dtype=int)
+    pr = cProfile.Profile()
+    winning_white_board = np.array(
+    [
+        [2, 3, 5, 4, 3, 0],
+        [1, 1, 0, 1, 1, 1],
+        [0, 0, 1, 0, 2, 0],
+        [0, 0, 6, 0, 0, 0],
+        [6, 6, 0, 6, 6, 6],
+        [7, 8, 10, 9, 8, 7]
+    ]
+)
 
     print("--- Test Case: Bot Playing White ---")
     print("Board State:")
@@ -419,6 +498,11 @@ if __name__ == "__main__":
     
     # We pass playing_white=True
     # The engine will now maximize the evaluation score
+    pr.enable()
     move = get_best_move(winning_white_board, playing_white=True)
+    pr.disable()
+    ps = pstats.Stats(pr).sort_stats('cumulative')
     
     print("\nBest move for White:", move)
+
+    ps.print_stats(30)

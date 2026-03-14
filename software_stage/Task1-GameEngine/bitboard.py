@@ -29,6 +29,9 @@ for r in range(BOARD_RANKS):
 ALL_ONES = (1 << BOARD_SQ) - 1
 
 
+
+
+
 class Bitboards:
     def __init__(self):
         """Initialize empty bitboards for all pieces (6x6 board, 36 bits used)."""
@@ -48,30 +51,35 @@ class Bitboards:
     # ---- piece accessors -------------------------------------------------
     def get_bb(self, piece_id: int) -> int:
         """Return the bitboard corresponding to piece id (1..10)."""
-        if piece_id == 1: return self.WP
-        if piece_id == 2: return self.WN
-        if piece_id == 3: return self.WB
-        if piece_id == 4: return self.WQ
-        if piece_id == 5: return self.WK
-        if piece_id == 6: return self.BP
-        if piece_id == 7: return self.BN
-        if piece_id == 8: return self.BB
-        if piece_id == 9: return self.BQ
-        if piece_id == 10: return self.BK
-        return 0
+        match piece_id:
+            case 1: return self.WP
+            case 2: return self.WN
+            case 3: return self.WB
+            case 4: return self.WQ
+            case 5: return self.WK
+            case 6: return self.BP
+            case 7: return self.BN
+            case 8: return self.BB
+            case 9: return self.BQ
+            case 10: return self.BK
+            case _: return 0
 
     def set_bb(self, piece_id: int, value: int):
         """Set the bitboard for the given piece id."""
-        if piece_id == 1: self.WP = value; return
-        if piece_id == 2: self.WN = value; return
-        if piece_id == 3: self.WB = value; return
-        if piece_id == 4: self.WQ = value; return
-        if piece_id == 5: self.WK = value; return
-        if piece_id == 6: self.BP = value; return
-        if piece_id == 7: self.BN = value; return
-        if piece_id == 8: self.BB = value; return
-        if piece_id == 9: self.BQ = value; return
-        if piece_id == 10: self.BK = value; return
+        match piece_id:
+            case 1: self.WP = value
+            case 2: self.WN = value
+            case 3: self.WB = value
+            case 4: self.WQ = value
+            case 5: self.WK = value
+            case 6: self.BP = value
+            case 7: self.BN = value
+            case 8: self.BB = value
+            case 9: self.BQ = value
+            case 10: self.BK = value
+            case _: pass
+
+        
 
     # ---- occupancy helpers -----------------------------------------------
     def white_occ(self) -> int:
@@ -187,6 +195,103 @@ class Bitboards:
             if (self.get_bb(pid) >> sq) & 1:
                 return pid
         return 0
+    
+    
 
 
 
+# ----- attack bitboards (precomputed for 6x6) ---------------------------------
+
+KNIGHT_ATTACKS = [0] * BOARD_SQ
+KING_ATTACKS = [0] * BOARD_SQ
+WHITE_PAWN_ATTACKS = [0]*BOARD_SQ
+BLACK_PAWN_ATTACKS = [0]*BOARD_SQ
+RAY_MASKS = [[0] * 8 for _ in range(36)]
+
+# Precompute knight and king attack bitboards for each square on 6x6 board
+for sq in range(BOARD_SQ):
+
+    r, c = Bitboards.index_to_rc(sq)
+
+    # knight
+    attacks = 0
+    for dr, dc in [(-2,-1),(-2,1),(2,-1),(2,1),(-1,-2),(-1,2),(1,-2),(1,2)]:
+        rr, cc = r+dr, c+dc
+        if 0 <= rr < BOARD_RANKS and 0 <= cc < BOARD_FILES:
+            attacks |= 1 << Bitboards.rc_to_index(rr,cc)
+    KNIGHT_ATTACKS[sq] = attacks
+
+    # king
+    attacks = 0
+    for dr in (-1,0,1):
+        for dc in (-1,0,1):
+            if dr == 0 and dc == 0:
+                continue
+            rr, cc = r+dr, c+dc
+            if 0 <= rr < BOARD_RANKS and 0 <= cc < BOARD_FILES:
+                attacks |= 1 << Bitboards.rc_to_index(rr,cc)
+    KING_ATTACKS[sq] = attacks
+
+
+# precompute pawn attacks for white and black
+for sq in range(BOARD_SQ):
+
+    r,c = Bitboards.index_to_rc(sq)
+
+    # white
+    attacks = 0
+    for dc in (-1,1):
+        rr,cc = r+1, c+dc
+        if 0<=rr<BOARD_RANKS and 0<=cc<BOARD_FILES:
+            attacks |= 1 << Bitboards.rc_to_index(rr,cc)
+    WHITE_PAWN_ATTACKS[sq] = attacks
+
+    # black
+    attacks = 0
+    for dc in (-1,1):
+        rr,cc = r-1, c+dc
+        if 0<=rr<BOARD_RANKS and 0<=cc<BOARD_FILES:
+            attacks |= 1 << Bitboards.rc_to_index(rr,cc)
+    BLACK_PAWN_ATTACKS[sq] = attacks
+
+
+# precompute ray masks for sliding pieces (bishop, queen)
+directions = [
+        (1, 0), (-1, 0), (0, 1), (0, -1),   # Orthogonal
+        (1, 1), (1, -1), (-1, 1), (-1, -1)  # Diagonal
+    ]
+for sq in range(36):
+    r, c = Bitboards.index_to_rc(sq)
+    for i, (dr, dc) in enumerate(directions):
+        mask = 0
+        curr_r, curr_c = r + dr, c + dc
+        while 0 <= curr_r < 6 and 0 <= curr_c < 6:
+            mask |= (1 << Bitboards.rc_to_index(curr_r, curr_c))
+            curr_r += dr
+            curr_c += dc
+        RAY_MASKS[sq][i] = mask
+
+
+
+def get_ray_attacks(sq, occupancy, direction_idx):
+    """
+    Returns attacks for a single ray using the 'Shadow' bitmasking trick.
+    This replaces 'while' loops with bitwise math.
+    """
+    ray = RAY_MASKS[sq][direction_idx]
+    blockers = ray & occupancy
+    if not blockers:
+        return ray
+    
+    # Find the first blocker
+    # If direction is positive (N, E, NE, NW), the blocker is the LSB
+    # If direction is negative (S, W, SE, SW), the blocker is the MSB
+    if direction_idx in [0, 2, 4, 5]: # Positive directions
+        first_blocker_sq = Bitboards.lsb(blockers)
+    else: # Negative directions
+        first_blocker_sq = Bitboards.msb(blockers)
+        
+    # The shadow is everything behind the first blocker in that ray
+    shadow = RAY_MASKS[first_blocker_sq][direction_idx]
+    return ray & ~shadow
+    

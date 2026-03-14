@@ -24,15 +24,15 @@ BOARD_SIZE = 6
 
 PIECE_VALUES = {
     WHITE_PAWN:   100,
-    WHITE_KNIGHT: 300,
-    WHITE_BISHOP: 320,
-    WHITE_QUEEN:  900,
-    WHITE_KING:  20000,
-    BLACK_PAWN:  -100,
-    BLACK_KNIGHT:-300,
-    BLACK_BISHOP:-320,
-    BLACK_QUEEN: -900,
-    BLACK_KING: -20000,
+    WHITE_KNIGHT: 340,  # Increased: Very strong in small spaces
+    WHITE_BISHOP: 315,  # Slightly lower than Knight for 6x6
+    WHITE_QUEEN:  950, # Massive: Only piece with orthogonal + diagonal mobility
+    WHITE_KING:   20000,
+    BLACK_PAWN:   -100,
+    BLACK_KNIGHT: -340,
+    BLACK_BISHOP: -315,
+    BLACK_QUEEN:  -950,
+    BLACK_KING:   -20000
 }
 # Column index → letter
 COL_TO_FILE = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 4: 'E', 5: 'F'}
@@ -46,21 +46,21 @@ BOARD_FILES = 6
 
 # Base tables in range approx [-1, +1]; white's perspective.
 PAWN_BASE = np.array([
-    [ 0.0,  0.0,  0.0,  0.0,  0.0,  0.0],  # rank 1 (home)
-    [ 0.1,  0.1,  0.1,  0.1,  0.1,  0.1],
-    [ 0.2,  0.2,  0.25, 0.25, 0.2,  0.2],
-    [ 0.3,  0.3,  0.35, 0.35, 0.3,  0.3],
-    [ 0.4,  0.4,  0.4,  0.4,  0.4,  0.4],
-    [ 0.0,  0.0,  0.0,  0.0,  0.0,  0.0]   # last rank (promotion rank) — special handled by move logic
+    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    [0.15, 0.25, 0.35, 0.35, 0.25, 0.15],
+    [0.3, 0.45, 0.6, 0.6, 0.45, 0.3],
+    [0.45, 0.6, 0.8, 0.8, 0.6, 0.45],
+    [0.6, 0.8, 1.0, 1.0, 0.8, 0.6],
+    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 ])
 
 KNIGHT_BASE = np.array([
-    [-0.6, -0.4, -0.2, -0.2, -0.4, -0.6],
-    [-0.4,  0.2,  0.4,  0.4,  0.2, -0.4],
-    [-0.2,  0.4,  0.6,  0.6,  0.4, -0.2],
-    [-0.2,  0.4,  0.6,  0.6,  0.4, -0.2],
-    [-0.4,  0.2,  0.4,  0.4,  0.2, -0.4],
-    [-0.6, -0.4, -0.2, -0.2, -0.4, -0.6]
+    [-0.5, -0.4, -0.3, -0.3, -0.4, -0.5],
+    [-0.4,  0.2,  0.5,  0.5,  0.2, -0.4],
+    [-0.3,  0.5,  1.0,  1.0,  0.5, -0.3],
+    [-0.3,  0.5,  1.0,  1.0,  0.5, -0.3],
+    [-0.4,  0.2,  0.5,  0.5,  0.2, -0.4],
+    [-0.5, -0.4, -0.3, -0.3, -0.4, -0.5]
 ])
 
 BISHOP_BASE = np.array([
@@ -82,21 +82,33 @@ QUEEN_BASE = np.array([
 ])
 
 # King: opening/middlegame prefer castled/safe (edges), in endgame want central king (we keep simple small bias)
+
+
 KING_BASE = np.array([
-    [-0.4, -0.2,  0.0,  0.0, -0.2, -0.4],
-    [-0.2, -0.1,  0.1,  0.1, -0.1, -0.2],
-    [ 0.0,  0.1,  0.2,  0.2,  0.1,  0.0],
-    [ 0.0,  0.1,  0.2,  0.2,  0.1,  0.0],
-    [-0.2, -0.1,  0.1,  0.1, -0.1, -0.2],
-    [-0.4, -0.2,  0.0,  0.0, -0.2, -0.4]
+    [ 0.0,  0.5,  0.2,  0.2,  0.5,  0.0],  # Back rank: Safe (Corners/Sides preferred)
+    [-0.5, -1.0, -1.0, -1.0, -1.0, -0.5],  # 2nd rank: Exposed
+    [-1.0, -2.0, -2.0, -2.0, -2.0, -1.0],  # 3rd rank: Danger zone
+    [-1.5, -2.5, -3.0, -3.0, -2.5, -1.5],  # Center: Death trap
+    [-2.0, -3.0, -4.0, -4.0, -3.0, -2.0],  # Front: Suicide
+    [-3.0, -4.0, -5.0, -5.0, -4.0, -3.0]   # Enemy territory
 ])
 
-FACTORS = {
-    'pawn':  0.10,   # pawn bonus ≈ piece_value * 0.10 * base_value  -> up to ~10 pts
-    'knight':0.08,   # knight ≈ 300 * 0.08 * base -> up to ~24 pts
-    'bishop':0.00,   # bishop ≈ 320 * 0.08 -> up to ~25 pts
-    'queen': 0.01,   # queen ≈ 900 * 0.05 -> up to ~45 pts (but base is small so actual smaller)
-    'king':  0.01    # king safety tiny
+
+# Multipliers for Piece-Square Tables
+# Higher = Piece is more "picky" about which square it stands on.
+PST_WEIGHTS = {
+    WHITE_PAWN:   5,  # Highest: Promotion is the #1 goal in 6x6
+    WHITE_KNIGHT: 15,  # High: Knights must be central to be effective
+    WHITE_BISHOP: 5,   # Medium: Range is slightly wasted on small boards
+    WHITE_QUEEN:  5,   # Low: Queen is lethal from anywhere
+    WHITE_KING:   5,  # Very High: Position is crucial for safety/checkmate
+    
+    # Mirror for Black
+    BLACK_PAWN:   5,
+    BLACK_KNIGHT: 15,
+    BLACK_BISHOP: 5,
+    BLACK_QUEEN:  5,
+    BLACK_KING:   5
 }
 # ---------------------------------------------------------------------------
 # Coordinate helpers

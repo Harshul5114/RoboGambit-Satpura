@@ -1,8 +1,9 @@
 import pygame
-from game import get_all_moves, _get_best_move, cell_to_idx, is_terminal
+from game import get_all_moves, get_best_move, cell_to_idx, is_terminal
 import time
 import numpy as np
 from bitboard import *
+from utils import *
 BOARD_SIZE = 6
 CELL = 100
 
@@ -339,11 +340,9 @@ def run_ui(board, playing_white=True):
 
             st = time.time()
 
-            move = _get_best_move(
+            move = get_best_move(
                 board,
                 playing_white,
-                white_captured=white_captured,
-                black_captured=black_captured
             )
 
             et = time.time()
@@ -364,17 +363,82 @@ def run_ui(board, playing_white=True):
             thinking = False
             playing_white = True
 
-            print(white_captured, black_captured)
+            # print(white_captured, black_captured)
 
-            board = bb_to_board(bb)
+            # board = bb_to_board(bb)
 
-            print_board(board)
-            print("--------------------------------")
-            bb.print_board()
+            # print_board(board)
+            # print("--------------------------------")
+            # bb.print_board()
 
     if DEBUG:
         print("Game over!")
         print("Total moves played:",len(times))
         print("Average engine move time: {:.2f}".format(sum(times)/len(times) if times else 0))
+
+    pygame.quit()
+
+def run_auto_play(board, delay=0.5):
+    """Makes the bot play against itself."""
+    bb = Bitboards.from_board_array(board)
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Chess Bot Auto-Play")
+
+    playing_white = True
+    running = True
+    
+    # Track captures for the promotion rule
+    white_captured = []
+    black_captured = []
+
+    while running:
+        # 1. Update Board for UI
+        current_board_array = bb_to_board(bb)
+        
+        # 2. Check for Terminal State
+        # We generate moves to see if the game is over
+        # 3. Draw the current state
+        draw_board(screen, current_board_array, None, [], True, playing_white)
+        pygame.display.flip()
+        moves = get_all_moves(playing_white, white_captured, black_captured, bb)
+        if not moves:
+            print("Game Over!")
+            if in_check(bb, playing_white):
+                print(f"{'Black' if playing_white else 'White'} wins by Checkmate!")
+            else:
+                print("Draw by Stalemate!")
+            time.sleep(7)
+            break
+
+
+        # 4. Handle Pygame Events (to allow closing the window)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+                pygame.quit()
+                return
+
+        # 5. Engine Turn
+        # NOTE: Make sure get_best_move can accept bb, white_captured, and black_captured
+        move_str = get_best_move(
+            current_board_array, 
+            playing_white,
+        )
+
+        if move_str:
+            # Apply the move and update capture lists
+            captured = apply_engine_move(move_str, bb)
+            if captured:
+                if 1 <= captured <= 5: # White piece captured
+                    white_captured.append(captured)
+                else: # Black piece captured
+                    black_captured.append(captured)
+            
+            playing_white = not playing_white
+            time.sleep(delay) # Pause so humans can follow
+        else:
+            print("No moves returned by engine.")
+            break
 
     pygame.quit()
