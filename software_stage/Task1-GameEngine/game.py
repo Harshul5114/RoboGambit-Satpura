@@ -418,7 +418,7 @@ def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured
 
     bb = Bitboards.from_board_array(board)
 
-    print("Initial Board Evaluation:", evaluate(bb)) #!remove
+    # print("Initial Board Evaluation:", evaluate(bb)) #!remove
 
     # 1. Initialize the hash for the starting position
     current_hash = get_hash(bb, playing_white)
@@ -458,7 +458,7 @@ def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured
             else: white_captured.append(captured)
 
         # 4. Recurse (Note: Pass depth - 1 because root is ply 1)
-        value = minimax(alpha, beta, search_depth - 1, not playing_white, white_captured, black_captured, bb, next_hash)
+        value = minimax(alpha, beta, search_depth, not playing_white, white_captured, black_captured, bb, next_hash)
 
         # 5. Undo everything in reverse order
         if captured:
@@ -476,7 +476,7 @@ def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured
             beta = min(beta, value)
 
 
-    print("Best Move Evaluation:", best_value) #!remove
+    # print("Best Move Evaluation:", best_value) #!remove
     return None if not best_move else format_move(*best_move)
 
 # ---------------------------------------------------------------------------

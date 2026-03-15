@@ -9,19 +9,22 @@ def make_temp_move(bb, piece, sr, sc, dr, dc, new_piece):
     src_bit = 1 << src_idx
     dst_bit = 1 << dst_idx
 
-    # remove piece from source
+    # 1. Remove moving piece from source
     bb.set_bb(piece, bb.get_bb(piece) & ~src_bit)
 
-    # capture if needed
+    # 2. Identify if there is a capture
     captured_piece = bb.get_piece_at(dr, dc)
 
 
-    # add piece at destination
+    # If there's a piece at the destination, you MUST clear its bit!
+    if captured_piece != 0:
+        bb.set_bb(captured_piece, bb.get_bb(captured_piece) & ~dst_bit)
+
+
+    # 3. Add piece at destination (handles regular moves and promotions)
     bb.set_bb(new_piece, bb.get_bb(new_piece) | dst_bit)
 
     return captured_piece
-
-
 
 def undo_temp_move(bb, piece, sr, sc, dr, dc, new_piece, captured_piece):
     src_idx = bb.rc_to_index(sr, sc)
@@ -29,12 +32,15 @@ def undo_temp_move(bb, piece, sr, sc, dr, dc, new_piece, captured_piece):
     src_bit = 1 << src_idx
     dst_bit = 1 << dst_idx
 
+    # 1. Remove the piece from where it moved to
     bb.set_bb(new_piece, bb.get_bb(new_piece) & ~dst_bit)
+    
+    # 2. Put the original piece back at the source
     bb.set_bb(piece, bb.get_bb(piece) | src_bit)
 
+    # 3. If a piece was captured, put it back on the destination square
     if captured_piece != 0:
         bb.set_bb(captured_piece, bb.get_bb(captured_piece) | dst_bit)
-
 
 
 

@@ -33,4 +33,4 @@ start_board = np.array(
 )
 
 
-run_auto_play(start_board, delay=0)
+run_ui(start_board)
