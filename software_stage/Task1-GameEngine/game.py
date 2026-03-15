@@ -122,8 +122,8 @@ def score_move(bb, move):
 
     captured = None
     
-    if dst_bit & bb.all_occ():
-        captured = bb.get_piece_at(dr, dc)
+
+    captured = bb.get_piece_at(dr, dc)
 
     score = 0
 
@@ -194,32 +194,31 @@ def evaluate(bb: Bitboards) -> int:
     # 1. Map piece types to their respective bitboards and PST tables
     # Note: We use the base tables from constants.py
     piece_map = {
-        WHITE_PAWN: (bb.WP, PAWN_BASE),
-        WHITE_KNIGHT: (bb.WN, KNIGHT_BASE),
-        WHITE_BISHOP: (bb.WB, BISHOP_BASE),
-        WHITE_QUEEN: (bb.WQ, QUEEN_BASE),
-        WHITE_KING: (bb.WK, KING_BASE),
-        BLACK_PAWN: (bb.BP, PAWN_BASE),
-        BLACK_KNIGHT: (bb.BN, KNIGHT_BASE),
-        BLACK_BISHOP: (bb.BB, BISHOP_BASE),
-        BLACK_QUEEN: (bb.BQ, QUEEN_BASE),
-        BLACK_KING: (bb.BK, KING_BASE)
+        WHITE_PAWN: bb.WP,
+        WHITE_KNIGHT: bb.WN,
+        WHITE_BISHOP: bb.WB,
+        WHITE_QUEEN: bb.WQ,
+        WHITE_KING: bb.WK,
+        BLACK_PAWN: bb.BP,
+        BLACK_KNIGHT: bb.BN,
+        BLACK_BISHOP: bb.BB,
+        BLACK_QUEEN: bb.BQ,
+        BLACK_KING: bb.BK,
     }
 
     # 2. Determine Game Phase
     # In 6x6, the board is cramped. Endgame starts when few pieces remain.
     # We count bits in the 'all occupancy' bitboard.
-    total_pieces = bin(bb.all_occ()).count('1')
+    total_pieces = Bitboards.popcount(bb.all_occ())
     is_endgame = total_pieces <= 8  # Threshold for 6x6 board
 
     # 3. Main Evaluation Loop
-    for piece_id, (bitboard, pst_base) in piece_map.items():
+    for piece_id, bitboard in piece_map.items():
         if bitboard == 0:
             continue
             
         is_w = is_white(piece_id)
         material_val = PIECE_VALUES[piece_id]
-        weight = PST_WEIGHTS[piece_id]
         
         # Iterate over every piece of this type using bitwise operations
         temp_bb = bitboard
@@ -237,7 +236,7 @@ def evaluate(bb: Bitboards) -> int:
             if (piece_id == WHITE_KING or piece_id == BLACK_KING) and is_endgame:
                 pst_b = -pst_b
             
-            score += pst_b if is_w else -pst_b
+            score += pst_b
             
             # Clear the Least Significant Bit to move to the next piece
             temp_bb &= temp_bb - 1
@@ -261,9 +260,22 @@ def format_move(piece: int, src_row: int, src_col: int,
     dst_cell = idx_to_cell(dst_row, dst_col)
     return f"{piece}:{src_cell}->{dst_cell}" if piece == new_piece else f"{piece}:{src_cell}->{dst_cell}={new_piece}" 
 
+def store_tt(current_hash, depth, val, alpha_orig, beta_orig):
+    """Helper to keep Minimax clean."""
+    flag = EXACT
+    if val <= alpha_orig:
+        flag = UPPERBOUND
+    elif val >= beta_orig:
+        flag = LOWERBOUND
+
+    if len(TT) >= TT_MAX_SIZE:
+        TT.clear()
+        
+    TT[current_hash] = {'depth': depth, 'value': val, 'flag': flag}
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
+
 def minimax(
              alpha: int,
              beta: int,
@@ -272,118 +284,93 @@ def minimax(
              white_captured: list, 
              black_captured: list, 
              bb: Bitboards, 
-             current_hash: int
+             current_hash: int,
              ):
-    """
-    Complete Minimax with Alpha-Beta Pruning and Transposition Table.
-    """
+    
     alpha_orig = alpha
     beta_orig = beta
 
+    # -----------------------------------------
     # 1. Transposition Table Lookup
+    # -----------------------------------------
     if current_hash in TT:
         entry = TT[current_hash]
         if entry['depth'] >= depth:
-            if entry['flag'] == EXACT:
-                return entry['value']
-            elif entry['flag'] == LOWERBOUND:
-                alpha = max(alpha, entry['value'])
-            elif entry['flag'] == UPPERBOUND:
-                beta = min(beta, entry['value'])
-            
-            if alpha >= beta:
-                return entry['value']
 
+            if entry['flag'] == EXACT: return entry['value']
+            if entry['flag'] == LOWERBOUND: alpha = max(alpha, entry['value'])
+            if entry['flag'] == UPPERBOUND: beta = min(beta, entry['value'])
+            if alpha >= beta: return entry['value']
+
+    # -----------------------------------------
+    # 2. Leaf Node Evaluaton
+    # -----------------------------------------
     if depth == 0:
-        # At leaf nodes, return the static evaluation
         return evaluate(bb)
 
-    
+    # -----------------------------------------
+    # 3. Generate & Order Moves
+    # -----------------------------------------
     moves = get_all_moves(playing_white, white_captured, black_captured, bb)
     moves.sort(key=lambda move: score_move(bb, move), reverse=True)
 
-    # Terminal State Handling
+    # -----------------------------------------
+    # 4. Terminal State (Checkmate/Stalemate)
+    # -----------------------------------------
     terminal_state = is_terminal(playing_white, white_captured, black_captured, bb, moves)
-    
     if terminal_state == 1:
-        # Checkmate: If it's your turn and you're mated, you lose. 
-        # We add/subtract depth to prefer the shortest path to mate.
         return -100000 - depth if playing_white else 100000 + depth
-
     if terminal_state == 2:
-        # Stalemate is a draw (0), not the material score.
         return 0
 
+    # -----------------------------------------
+    # 6. SINGLE SEARCH LOOP (Combined White/Black)
+    # -----------------------------------------
+    best_eval = float('-inf') if playing_white else float('inf')
+    # Point to the correct capture list to use based on whose turn it is
+    my_captures = black_captured if playing_white else white_captured
 
-    if playing_white:
-        max_eval = float('-inf')
-        for move in moves:
-            piece, sr, sc, dr, dc, new_piece = move
-            src_idx = sr * 6 + sc
-            dst_idx = dr * 6 + dc
+    for move in moves:
+        piece, sr, sc, dr, dc, new_piece = move
+        src_idx = sr * 6 + sc
+        dst_idx = dr * 6 + dc
 
-            # Calculate Incremental Hash
-            # 1. Remove piece from source, 2. Place piece at dest, 3. Toggle turn
-            next_hash = current_hash ^ ZOBRIST_TABLE[piece][src_idx] ^ ZOBRIST_TABLE[new_piece][dst_idx] ^ ZOBRIST_SIDE
-            
-            # 4. If capture, XOR out the captured piece
-            captured_pid = bb.get_piece_at(dr, dc) # *Helper needed to identify piece at dest
-            if captured_pid:
-                next_hash ^= ZOBRIST_TABLE[captured_pid][dst_idx]
+        # 1. Execute Move first (gets the captured piece ID)
+        captured = make_temp_move(bb, *move)
 
-            # Execute white move and recurse
-            captured = make_temp_move(bb, *move)
-            black_captured.append(captured) if captured else None
-            val = minimax(alpha, beta, depth - 1, False, white_captured, black_captured, bb, next_hash)
-            black_captured.pop() if captured else None
-            undo_temp_move(bb, *move, captured)
-
-            max_eval = max(max_eval, val)
-            alpha = max(alpha, val)
-            if beta <= alpha:
-                break # Alpha-Beta Pruning
-        res_val = max_eval
-
-    else:
-        min_eval = float('inf')
-        for move in moves:
-            piece, sr, sc, dr, dc, new_piece = move
-            src_idx = sr * 6 + sc
-            dst_idx = dr * 6 + dc
-
-            next_hash = current_hash ^ ZOBRIST_TABLE[piece][src_idx] ^ ZOBRIST_TABLE[new_piece][dst_idx] ^ ZOBRIST_SIDE
-            
-            captured_pid = bb.get_piece_at(dr, dc)
-            if captured_pid:
-                next_hash ^= ZOBRIST_TABLE[captured_pid][dst_idx]
-
-            captured = make_temp_move(bb, *move)
-            white_captured.append(captured) if captured else None
-            val = minimax(alpha, beta, depth - 1, True, white_captured, black_captured, bb, next_hash)
-            white_captured.pop() if captured else None
-            undo_temp_move(bb, *move, captured)
-
-            min_eval = min(min_eval, val)
-            beta = min(beta, val)
-            if beta <= alpha:
-                break
-        res_val = min_eval
-
-    # 4. Store Result in Transposition Table
-    new_entry = {'depth': depth, 'value': res_val}
-    if res_val <= alpha_orig:
-        new_entry['flag'] = UPPERBOUND
-    elif res_val >= beta_orig:
-        new_entry['flag'] = LOWERBOUND
-    else:
-        new_entry['flag'] = EXACT
-
-    if len(TT) >= TT_MAX_SIZE:
-        TT.clear()
+        # 2. Calculate Hash using the 'captured' variable
+        # XOR out source, XOR in destination, XOR toggle side
+        next_hash = current_hash ^ ZOBRIST_TABLE[piece][src_idx] ^ ZOBRIST_TABLE[new_piece][dst_idx] ^ ZOBRIST_SIDE
         
-    TT[current_hash] = new_entry
-    return res_val
+        # If something was captured, XOR it out of the hash
+        if captured:
+            next_hash ^= ZOBRIST_TABLE[captured][dst_idx]
+            my_captures.append(captured)
+        
+        # 3. Recurse
+        val = minimax(alpha, beta, depth - 1, not playing_white, 
+                      white_captured, black_captured, bb, next_hash)
+        
+        # 4. Undo Move
+        if captured: my_captures.pop()
+        undo_temp_move(bb, *move, captured)
 
+        # Alpha-Beta Updates
+        if playing_white:
+            best_eval = max(best_eval, val)
+            alpha = max(alpha, val)
+        else:
+            best_eval = min(best_eval, val)
+            beta = min(beta, val)
+            
+        if beta <= alpha:
+            break
+
+    # -----------------------------------------
+    # 7. TT Store
+    # -----------------------------------------
+    store_tt(current_hash, depth, best_eval, alpha_orig, beta_orig)
+    return best_eval
 
 # we need a mechanism to take into account stalemate conditions
 # right now the only mechanism is checkmate so we need to disallow any moves that result in a check for the player
@@ -428,7 +415,10 @@ def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured
     if black_captured is None:
         black_captured = []
 
+
     bb = Bitboards.from_board_array(board)
+
+    print("Initial Board Evaluation:", evaluate(bb)) #!remove
 
     # 1. Initialize the hash for the starting position
     current_hash = get_hash(bb, playing_white)
@@ -444,22 +434,36 @@ def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured
 
     all_moves = get_all_moves(playing_white, white_captured, black_captured, bb)
     all_moves.sort(key=lambda move: score_move(bb, move), reverse=True)
+
+    is_endgame = Bitboards.popcount(bb.all_occ()) <= 8
+    search_depth = 8 if is_endgame else 6   # * idk
     
     for move in all_moves:
         piece, sr, sc, dr, dc, new_piece = move
         
-        captured = make_temp_move(bb, *move)
+        # 1. Get captured piece BEFORE moving to calculate hash
+        captured = bb.get_piece_at(dr, dc)
 
-        # Calculate incremental hash for root moves
+        # 2. Incremental hash
         src_idx = sr * 6 + sc
         dst_idx = dr * 6 + dc
         next_hash = current_hash ^ ZOBRIST_SIDE ^ ZOBRIST_TABLE[piece][src_idx] ^ ZOBRIST_TABLE[new_piece][dst_idx]
-        if captured != 0:
+        if captured:
             next_hash ^= ZOBRIST_TABLE[captured][dst_idx]
         
-        # Notice we pass next_hash into minimax
-        value = minimax(alpha, beta, 5, not playing_white, white_captured, black_captured, bb, next_hash)
+        # 3. Apply move AND update capture lists
+        make_temp_move(bb, *move)
+        if captured:
+            if playing_white: black_captured.append(captured)
+            else: white_captured.append(captured)
 
+        # 4. Recurse (Note: Pass depth - 1 because root is ply 1)
+        value = minimax(alpha, beta, search_depth - 1, not playing_white, white_captured, black_captured, bb, next_hash)
+
+        # 5. Undo everything in reverse order
+        if captured:
+            if playing_white: black_captured.pop()
+            else: white_captured.pop()
         undo_temp_move(bb, *move, captured)
         
         if (playing_white and value > best_value) or (not playing_white and value < best_value):
@@ -470,7 +474,9 @@ def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured
             alpha = max(alpha, value)
         else:
             beta = min(beta, value)
-    
+
+
+    print("Best Move Evaluation:", best_value) #!remove
     return None if not best_move else format_move(*best_move)
 
 # ---------------------------------------------------------------------------

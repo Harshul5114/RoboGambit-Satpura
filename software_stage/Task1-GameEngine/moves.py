@@ -13,12 +13,7 @@ def make_temp_move(bb, piece, sr, sc, dr, dc, new_piece):
     bb.set_bb(piece, bb.get_bb(piece) & ~src_bit)
 
     # capture if needed
-    captured_piece = 0
-    for pid in range(1, 11):
-        pb = bb.get_bb(pid)
-        if pb & dst_bit:
-            bb.set_bb(pid, pb & ~dst_bit)
-            captured_piece = pid
+    captured_piece = bb.get_piece_at(dr, dc)
 
 
     # add piece at destination
@@ -41,7 +36,7 @@ def undo_temp_move(bb, piece, sr, sc, dr, dc, new_piece, captured_piece):
         bb.set_bb(captured_piece, bb.get_bb(captured_piece) | dst_bit)
 
 
-# moves.py
+
 
 def get_sliding_bitboard_attacks(sq, occupancy, piece_type):
     """

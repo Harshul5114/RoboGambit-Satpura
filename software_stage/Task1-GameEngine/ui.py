@@ -392,6 +392,8 @@ def run_auto_play(board, delay=0.5):
     white_captured = []
     black_captured = []
 
+    times = []
+
     while running:
         # 1. Update Board for UI
         current_board_array = bb_to_board(bb)
@@ -401,6 +403,8 @@ def run_auto_play(board, delay=0.5):
         # 3. Draw the current state
         draw_board(screen, current_board_array, None, [], True, playing_white)
         pygame.display.flip()
+
+        print("Current player:", "White" if playing_white else "Black")
         moves = get_all_moves(playing_white, white_captured, black_captured, bb)
         if not moves:
             print("Game Over!")
@@ -408,6 +412,7 @@ def run_auto_play(board, delay=0.5):
                 print(f"{'Black' if playing_white else 'White'} wins by Checkmate!")
             else:
                 print("Draw by Stalemate!")
+            
             time.sleep(7)
             break
 
@@ -421,13 +426,17 @@ def run_auto_play(board, delay=0.5):
 
         # 5. Engine Turn
         # NOTE: Make sure get_best_move can accept bb, white_captured, and black_captured
+        s = time.time()
         move_str = get_best_move(
             current_board_array, 
             playing_white,
         )
+        e = time.time()
+        times.append(e - s)
 
         if move_str:
             # Apply the move and update capture lists
+            print(f"White move: {move_str}" if playing_white else f"Black move: {move_str}")
             captured = apply_engine_move(move_str, bb)
             if captured:
                 if 1 <= captured <= 5: # White piece captured
@@ -439,6 +448,12 @@ def run_auto_play(board, delay=0.5):
             time.sleep(delay) # Pause so humans can follow
         else:
             print("No moves returned by engine.")
+            
             break
-
+    
+    print("final board:")
+    print_board(current_board_array)
+    print("last player:", "White" if playing_white else "Black")
+    print("Total moves played:", len(times))
+    print("Average engine move time: {:.2f} seconds".format(sum(times)/len(times) if times else 0))
     pygame.quit()

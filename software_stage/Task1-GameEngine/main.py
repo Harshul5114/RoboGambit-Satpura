@@ -17,7 +17,7 @@ board = np.array([
     [0, 0, 0, 0, 4, 0],
     [0, 0, 1, 0, 0, 0],
     [0, 0, 0, 6, 0, 0],
-    [10, 0, 0, 0, 0, 0],
+    [10, 0, 0, 0, 0, 0], 
     [0, 0, 0, 0, 0, 0]
 ])
 
@@ -33,4 +33,4 @@ start_board = np.array(
 )
 
 
-run_auto_play(start_board)
+run_auto_play(start_board, delay=0)

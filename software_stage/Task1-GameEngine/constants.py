@@ -97,18 +97,17 @@ KING_BASE = np.array([
 # Multipliers for Piece-Square Tables
 # Higher = Piece is more "picky" about which square it stands on.
 PST_WEIGHTS = {
-    WHITE_PAWN:   5,  # Highest: Promotion is the #1 goal in 6x6
-    WHITE_KNIGHT: 15,  # High: Knights must be central to be effective
-    WHITE_BISHOP: 5,   # Medium: Range is slightly wasted on small boards
-    WHITE_QUEEN:  5,   # Low: Queen is lethal from anywhere
-    WHITE_KING:   5,  # Very High: Position is crucial for safety/checkmate
-    
-    # Mirror for Black
-    BLACK_PAWN:   5,
-    BLACK_KNIGHT: 15,
+    WHITE_PAWN:   10,
+    WHITE_KNIGHT: 8,
+    WHITE_BISHOP: 5,
+    WHITE_QUEEN:  3,
+    WHITE_KING:   4,
+
+    BLACK_PAWN:   10,
+    BLACK_KNIGHT: 8,
     BLACK_BISHOP: 5,
-    BLACK_QUEEN:  5,
-    BLACK_KING:   5
+    BLACK_QUEEN:  3,
+    BLACK_KING:   4
 }
 # ---------------------------------------------------------------------------
 # Coordinate helpers
