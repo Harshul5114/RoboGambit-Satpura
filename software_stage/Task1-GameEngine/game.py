@@ -26,8 +26,8 @@ Move output format:  "<piece_id>:<source_cell>-><target_cell>"
 
 import numpy as np
 from typing import Optional
-from bitboard import *
 import sys 
+from bitboard import *
 from utils import *
 from constants import *
 from moves import *
