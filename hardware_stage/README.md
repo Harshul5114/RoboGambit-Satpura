@@ -23,7 +23,7 @@ The Hardware Stage involves controlling two 4-DOF robotic arms to play a chess-i
 Install required Python packages:
 
 ```bash
-pip install numpy opencv-python requests pyserial 
+pip install numpy opencv-python requests pyserial
 ```
 
 ### Hardware Requirements
@@ -49,6 +49,7 @@ python main.py
 ```
 
 The system will continuously:
+
 - Capture board state via perception
 - Compute the best move using game logic
 - Send commands to the robotic arms to execute the move
