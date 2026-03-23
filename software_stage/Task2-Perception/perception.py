@@ -30,6 +30,8 @@ class RoboGambit_Perception:
         self.H_matrix = None
 
         self.board = np.zeros((6, 6), dtype=int)
+        # self.board_history = []
+        # self.history_size = 5       #number of frames to keep in history
 
         # ARUCO DETECTOR
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
@@ -50,7 +52,6 @@ class RoboGambit_Perception:
         return undistorted_image, gray_image
 
 
-    # TODO: IMPLEMENT PIXEL → WORLD TRANSFORMATION
     def pixel_to_world(self, pixel_x, pixel_y):
         """
         Convert pixel coordinates into world coordinates using homography.
@@ -165,7 +166,6 @@ class RoboGambit_Perception:
         self.visualize_board()
 
 
-    # TODO: IMPLEMENT BOARD PLACEMENT
     def place_piece_on_board(self, piece_id, x_coord, y_coord):
 
         """

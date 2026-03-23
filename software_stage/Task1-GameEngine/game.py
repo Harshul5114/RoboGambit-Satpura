@@ -436,7 +436,7 @@ def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured
     all_moves.sort(key=lambda move: score_move(bb, move), reverse=True)
 
     is_endgame = Bitboards.popcount(bb.all_occ()) <= 8
-    search_depth = 8 if is_endgame else 6   # * idk
+    search_depth = 9 if is_endgame else 7   # * idk
     
     for move in all_moves:
         piece, sr, sc, dr, dc, new_piece = move
@@ -486,7 +486,7 @@ if __name__ == "__main__":
     # Test Case: White to move
     # Setup: White has a Queen and King, Black has a lone King.
     # White should look for a move that pressures the Black King.
-    pr = cProfile.Profile()
+    # pr = cProfile.Profile()
     winning_white_board = np.array(
     [
         [2, 3, 5, 4, 3, 0],
@@ -504,11 +504,11 @@ if __name__ == "__main__":
     
     # We pass playing_white=True
     # The engine will now maximize the evaluation score
-    pr.enable()
+    # pr.enable()
     move = get_best_move(winning_white_board, playing_white=True)
-    pr.disable()
-    ps = pstats.Stats(pr).sort_stats('cumulative')
+    # pr.disable()
+    # ps = pstats.Stats(pr).sort_stats('cumulative')
     
     print("\nBest move for White:", move)
 
-    ps.print_stats(30)
+    # ps.print_stats(30)
