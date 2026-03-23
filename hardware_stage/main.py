@@ -4,13 +4,17 @@ import requests
 import argparse
 import serial
 import time
-from hardware_stage.test import cell_to_coords
-from perception import board
+import json
+import math
+
+# from hardware_stage.test import cell_to_coords
+# from perception import board
 from typing import Tuple
 
 DEBUG = True
+TESTING = True  # Set to False when running on the actual robot
 
-ser = serial.Serial('COM3', 115200) 
+# ser = serial.Serial('COM3', 115200) 
 BOARD = np.zeros((6, 6), dtype=int)
 
 #* needs tuning 
@@ -25,7 +29,7 @@ Z_SAFE  = 120    # Height to move across the board without hitting pieces
 Z_HOVER = 50     # Just above a piece before grabbing
 Z_GRIP  = 18     # Height where the gripper is around the piece center
 
-# --- Gripper States (Radians) ---
+# --- Gripper States (Radians) --- #! measure these (imp)
 GRIP_OPEN  = 1.2
 GRIP_CLOSE = 3.0
 
@@ -65,7 +69,10 @@ def place():
 
 def send_cmd(command: str):
     """Send the move string to the robot's actuators."""
-    print(f"Sending command: {command}")
+    print("TESTING" if TESTING else "SENDING", end=': ')
+    print(command)
+
+    if TESTING: return
 
     #* not needed ig
     # parser = argparse.ArgumentParser(description='Http JSON Communication')
@@ -119,6 +126,7 @@ def go_to(x, y, z, speed=0.5):
     debug_print(f"Moving to (x={x}, y={y}, z={z}) at speed {speed}")
     cmd = f'{{"T":104,"x":{x},"y":{y},"z":{z},"t":0,"spd":{speed}}}'
     send_cmd(cmd)
+    wait_until_reached(x, y, z)
 
 def set_gripper(state):
     """1.2 for Open, 3.0 for Close."""
@@ -126,6 +134,49 @@ def set_gripper(state):
     cmd = f'{{"T":106,"cmd":{state},"spd":0,"acc":0}}'
     send_cmd(cmd)
     time.sleep(0.5) # Physical delay for the servo to finish
+
+
+
+def get_current_pos():
+    """Returns the current (x, y, z) from the arm's sensors."""
+    response = send_cmd('{"T":105}')
+    if response:
+        try:
+            # The feedback comes back as T:1051
+            data = json.loads(response)
+            return data.get('x'), data.get('y'), data.get('z')
+        except:
+            return None, None, None
+    return None, None, None
+
+def wait_until_reached(target_x, target_y, target_z, tolerance=2.0, timeout=10):
+    """
+    Polls the arm's position until it is within 'tolerance' mm of the target.
+    """
+    debug_print(f"Waiting for arm to reach {target_x}, {target_y}, {target_z}...")
+    start_time = time.time()
+    
+    while time.time() - start_time < timeout:
+        curr_x, curr_y, curr_z = get_current_pos()
+        
+        if curr_x is None:
+            continue
+            
+        # Calculate Euclidean distance to target
+        distance = math.sqrt(
+            (target_x - curr_x)**2 + 
+            (target_y - curr_y)**2 + 
+            (target_z - curr_z)**2
+        )
+        
+        if distance <= tolerance:
+            debug_print(f"Target reached! (Distance: {distance:.2f}mm)")
+            return True
+        
+        time.sleep(0.1) # Poll every 100ms
+        
+    debug_print("Timeout: Arm didn't reach target in time.")
+    return False
 
 # ==== movement primitives ================================================== 
 
