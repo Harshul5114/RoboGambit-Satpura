@@ -6,7 +6,7 @@ import socket
 import struct
 
 # ── Socket config ─────────────────────────────────────────────────────────────
-SERVER_IP   = '10.168.70.199' #update this to server's IP address
+SERVER_IP   = '10.194.25.130' #update this to server's IP address
 SERVER_PORT = 9999
 
 # ── Camera intrinsics ─────────────────────────────────────────────────────────

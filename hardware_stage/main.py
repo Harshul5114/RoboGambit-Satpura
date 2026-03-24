@@ -7,14 +7,13 @@ import time
 import json
 import math
 
-# from hardware_stage.test import cell_to_coords
 # from perception import board
 from typing import Tuple
 
 DEBUG = True
-TESTING = True  # Set to False when running on the actual robot
+TESTING = True  # * Set to False when running on the actual robot
 
-# ser = serial.Serial('COM3', 115200) 
+ser = serial.Serial('COM3', 115200) 
 BOARD = np.zeros((6, 6), dtype=int)
 
 #* needs tuning 
@@ -29,19 +28,7 @@ Z_SAFE  = 120    # Height to move across the board without hitting pieces
 Z_HOVER = 50     # Just above a piece before grabbing
 Z_GRIP  = 18     # Height where the gripper is around the piece center
 
-# --- Gripper States (Radians) --- #! measure these (imp)
-GRIP_OPEN  = 1.2
-GRIP_CLOSE = 3.0
-
-# Define graveyard slots in a line or 2xN grid
-# Coordinates are relative to your robot's base
-GRAVEYARD_SLOTS = [
-    (100, -150), (100, -210), (100, -270), # Row 1
-    (160, -150), (160, -210), (160, -270)  # Row 2
-]
-
-# Track which slots are occupied: {slot_index: piece_id}
-graveyard_state = {i: None for i in range(len(GRAVEYARD_SLOTS))}
+GRAVEYARD = (400, -150)  # X and Y coordinates for captured pieces
 
 def get_board_state() -> np.ndarray:
     """Use the perception module to get the current board state."""
@@ -128,14 +115,6 @@ def go_to(x, y, z, speed=0.5):
     send_cmd(cmd)
     wait_until_reached(x, y, z)
 
-def set_gripper(state):
-    """1.2 for Open, 3.0 for Close."""
-    debug_print(f"Setting gripper state to: {'OPEN' if state == GRIP_OPEN else 'CLOSE'}")
-    cmd = f'{{"T":106,"cmd":{state},"spd":0,"acc":0}}'
-    send_cmd(cmd)
-    time.sleep(0.5) # Physical delay for the servo to finish
-
-
 
 def get_current_pos():
     """Returns the current (x, y, z) from the arm's sensors."""
@@ -149,33 +128,60 @@ def get_current_pos():
             return None, None, None
     return None, None, None
 
-def wait_until_reached(target_x, target_y, target_z, tolerance=2.0, timeout=10):
+def wait_until_reached(target_x, target_y, target_z,
+                       tolerance=2.0,
+                       max_step=5.0,
+                       timeout=10):
     """
-    Polls the arm's position until it is within 'tolerance' mm of the target.
+    Closed-loop controller:
+    Iteratively nudges arm toward target using feedback.
     """
-    debug_print(f"Waiting for arm to reach {target_x}, {target_y}, {target_z}...")
+
+    debug_print(f"[CL] Target: ({target_x}, {target_y}, {target_z})")
+
     start_time = time.time()
-    
+
     while time.time() - start_time < timeout:
+
         curr_x, curr_y, curr_z = get_current_pos()
-        
+
         if curr_x is None:
             continue
-            
-        # Calculate Euclidean distance to target
-        distance = math.sqrt(
-            (target_x - curr_x)**2 + 
-            (target_y - curr_y)**2 + 
-            (target_z - curr_z)**2
-        )
-        
-        if distance <= tolerance:
-            debug_print(f"Target reached! (Distance: {distance:.2f}mm)")
+
+        # --- compute error ---
+        dx = target_x - curr_x
+        dy = target_y - curr_y
+        dz = target_z - curr_z
+
+        dist = math.sqrt(dx*dx + dy*dy + dz*dz)
+
+        debug_print(f"[CL] Curr: ({curr_x:.1f}, {curr_y:.1f}, {curr_z:.1f}) | Err: {dist:.2f}")
+
+        # --- check if reached ---
+        if dist <= tolerance:
+            debug_print("[CL] Target reached.")
             return True
-        
-        time.sleep(0.1) # Poll every 100ms
-        
-    debug_print("Timeout: Arm didn't reach target in time.")
+
+        # --- clamp step (avoid overshoot) ---
+        step_dx = max(-max_step, min(max_step, dx))
+        step_dy = max(-max_step, min(max_step, dy))
+        step_dz = max(-max_step, min(max_step, dz))
+
+        # --- next intermediate target ---
+        next_x = curr_x + step_dx
+        next_y = curr_y + step_dy
+        next_z = curr_z + step_dz
+
+        debug_print(f"[CL] Nudging → ({next_x:.1f}, {next_y:.1f}, {next_z:.1f})")
+
+        # --- send correction ---
+        cmd = f'{{"T":104,"x":{next_x},"y":{next_y},"z":{next_z},"t":0,"spd":0.2}}'
+        send_cmd(cmd)
+
+        # small wait before next feedback
+        time.sleep(0.15)
+
+    debug_print("[CL] Timeout: failed to reach target.")
     return False
 
 # ==== movement primitives ================================================== 
@@ -198,16 +204,16 @@ def go_to_init():
 
 
 def pick_up_from_coords(x, y):
-    set_gripper(GRIP_OPEN)
+    place()
     go_to(x, y, Z_SAFE)  # Move above piece
     go_to(x, y, Z_GRIP)  # Lower to piece
-    set_gripper(GRIP_CLOSE)
+    pick()
     go_to(x, y, Z_SAFE)  # Lift piece
 
 def place_down_from_coords(x, y):
     go_to(x, y, Z_SAFE)  # Move above target
     go_to(x, y, Z_GRIP)  # Lower to surface
-    set_gripper(GRIP_OPEN)
+    place()
     go_to(x, y, Z_SAFE)  # Lift away
 
 def pick_up(row, col):
@@ -219,28 +225,14 @@ def place_down(row, col):
     place_down_from_coords(x, y)  # Use the revised function
 
 
-def dispose_piece(piece_id): #? might need rework later after asking from gamemakers
+def dispose_piece(): #? might need rework later after asking from gamemakers
     """Finds an empty slot and places the captured piece there."""
-    target_slot = None
-    for i, occupant in graveyard_state.items():
-        if occupant is None:
-            target_slot = i
-            break
-            
-    if target_slot is None:
-        debug_print("Error: Graveyard is full!") # Concern for organizers if this happens
-        return
+    gx, gy = GRAVEYARD
+    go_to(gx, gy, Z_SAFE)  # Move above graveyard
+    go_to(gx, gy, Z_GRIP)  # Lower to graveyard
+    place()  # Release piece in graveyard
+    go_to(gx, gy, Z_SAFE)  # Move away
 
-    slot_x, slot_y = GRAVEYARD_SLOTS[target_slot]
-    
-    # Sequence: Move to slot -> Lower -> Release -> Lift
-    go_to(slot_x, slot_y, Z_SAFE)
-    go_to(slot_x, slot_y, Z_GRIP)
-    set_gripper(GRIP_OPEN)
-    go_to(slot_x, slot_y, Z_SAFE)
-    
-    # Update local state
-    graveyard_state[target_slot] = piece_id
 
 def promote_piece(row, col, new_piece_id): #? might need rework later after asking from gamemakers
     pass
