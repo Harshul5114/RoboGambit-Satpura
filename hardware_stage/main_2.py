@@ -443,13 +443,7 @@ def execute_turn(move_str: str, current_board: np.ndarray):
     # --- Step 2: Move or promote ---
     if is_promotion:
         debug_print(f"[TURN] Promotion: moving pawn from {game.idx_to_cell(sr, sc)} → {game.idx_to_cell(dr, dc)}, then disposing")
-        # Move the pawn to the destination first so the square is correct
-        pick_up(sr, sc)
-        place_down(dr, dc)
-        # Now remove it and wait for human to place the promoted piece
-        pick_up(dr, dc)
-        dispose_piece()
-        # Park arm out of the way while human places the new piece
+        promote_piece(sr, sc, new_p_id)
         go_to_init()
         debug_print(f"[TURN] Waiting for human to place promoted piece (ID {new_p_id}) on {game.idx_to_cell(dr, dc)}...")
         # input("  Place the promoted piece on the board, then press Enter to continue...")
