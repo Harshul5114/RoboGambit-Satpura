@@ -30,6 +30,14 @@ TOP_LEFT_Y  = 180
 BOARD_SIZE  = 6
 PIECE_IDS   = set(range(1, 11))
 
+ROBOT_REALITY = {  # * needs calibration to be accurate, do not use blindly *
+    21: (245.5,  180.2), 
+    22: (245.5, -180.2), 
+    23: (420.1, -180.2), 
+    24: (420.1,  180.2), 
+}
+
+H_WORLD_TO_ROBOT, _ = cv2.findHomography(CORNER_WORLD, ROBOT_REALITY)
 # ── ArUco setup ───────────────────────────────────────────────────────────────
 aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
 params     = aruco.DetectorParameters()
@@ -114,6 +122,29 @@ def recv_frame(sock, data, payload_size):
     )
     return frame, data
 
+
+
+def get_piece_poses(ids, corners, H_matrix):
+    """Returns a dictionary: { piece_id: [(x1, y1), (x2, y2), ...] }"""
+    piece_data = {}
+    if ids is None or H_matrix is None:
+        return piece_data
+
+    for i, marker_id in enumerate(ids.flatten()):
+        # Assuming piece IDs are 1-10 (change if needed)
+        if 1 <= marker_id <= 10: 
+            # Get center of the marker in pixels
+            c = corners[i][0]
+            px, py = np.mean(c[:, 0]), np.mean(c[:, 1])
+            
+            # Transform to Robot World Coordinates (mm)
+            rx, ry = pixel_to_world(H_matrix, px, py)
+            
+            if marker_id not in piece_data:
+                piece_data[marker_id] = []
+            piece_data[marker_id].append((rx, ry))
+            
+    return piece_data
 
 # ── Connect ───────────────────────────────────────────────────────────────────
 print(f"Connecting to {SERVER_IP}:{SERVER_PORT} ...")

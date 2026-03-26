@@ -6,8 +6,9 @@ import time
 import json
 import math
 from collections import deque
+import cv2
 
-# from perception import board
+import perception
 from typing import Tuple, Optional
 
 # ===========================================================================
@@ -18,7 +19,7 @@ DEBUG   = True
 TESTING = True   # Set False when running on real hardware
 
 # --- Communication ---
-# ser    = serial.Serial('COM3', 115200)   # Serial: electromagnet only
+ser    = serial.Serial('COM3', 115200)   # Serial: electromagnet only
 IP     = "192.168.4.1"                   # HTTP: all arm movement
 
 # --- Board state ---
@@ -56,7 +57,7 @@ CORNER_BR: Optional[Tuple[float, float]] = None  # (x, y) at row=5, col=5
 # Simple fallback parameters (used when corners are incomplete)
 BASE_X     = 250
 BASE_Y     = -150
-SQUARE_SIZE = 60  # mm
+
 
 # --- Z-Heights ---
 Z_SAFE  = 120   # Cruise height — clears all pieces
@@ -83,44 +84,39 @@ STEP_TOL   = 8.0    # mm — if actual error > this after a step, log a warning
 #  COORDINATE MAPPING
 # ===========================================================================
 
-def _all_corners_set() -> bool:
-    return all(c is not None for c in [CORNER_TL, CORNER_TR, CORNER_BL, CORNER_BR])
+def transform_to_robot(board_x, board_y):
+    """Converts Board (mm) to Robot (mm) using the H-Matrix."""
+    # Format the point for cv2.perspectiveTransform
+    point = np.array([[[board_x, board_y]]], dtype=np.float32)
+    transformed = cv2.perspectiveTransform(point, perception.H_WORLD_TO_ROBOT)
+    
+    rx, ry = transformed[0][0]
+    return rx, ry
 
+def square_to_coords(row, col):
+    """Logic for the center of any square (0-5)"""
+    # 0,0 is at top-left. Our Board Space has 0,0 at center.
+    # A 6x6 board with 60mm squares:
+    bw_x = (2.5 - row) * perception.SQUARE_SIZE
+    bw_y = (2.5 - col) * perception.SQUARE_SIZE
 
-def square_to_coords(row: int, col: int) -> Tuple[float, float]:
-    """
-    Convert a board (row, col) to physical (x, y) mm coordinates.
+    return transform_to_robot(bw_x, bw_y)
 
-    Uses bilinear interpolation when all 4 corner calibration points are
-    available — this compensates for board skew, arm offset, and any
-    non-linearity across the workspace.
-
-    Falls back to the simple linear formula when corners are incomplete
-    (safe for early testing, less accurate for the real board).
-
-    Bilinear interpolation maps a unit square [0,1]x[0,1] onto the
-    four physical corners, so a point at normalised (u, v) becomes:
-
-        P = (1-u)(1-v)*TL + u(1-v)*TR + (1-u)v*BL + u*v*BR
-
-    where u = col/5  (0 = left edge, 1 = right edge)
-          v = row/5  (0 = top edge,  1 = bottom edge)
-    """
-    if _all_corners_set():
-        u = col / 5.0
-        v = row / 5.0
-        x = ((1-u)*(1-v)*CORNER_TL[0] + u*(1-v)*CORNER_TR[0] +
-             (1-u)*v    *CORNER_BL[0] + u*v    *CORNER_BR[0])
-        y = ((1-u)*(1-v)*CORNER_TL[1] + u*(1-v)*CORNER_TR[1] +
-             (1-u)*v    *CORNER_BL[1] + u*v    *CORNER_BR[1])
-        return x, y
-
-    # --- Fallback: simple linear grid ---
-    x = BASE_X + col * SQUARE_SIZE
-    y = BASE_Y + row * SQUARE_SIZE
-    return x, y
-
-
+def find_nearest_piece(target_id, start_row, start_col, all_poses):
+    """Finds the (x, y) of the piece closest to the expected square."""
+    # Get where we THINK the piece should be
+    expected_x = (2.5 - start_row) * perception.SQUARE_SIZE
+    expected_y = (2.5 - start_col) * perception.SQUARE_SIZE
+    
+    if target_id not in all_poses:
+        debug_print(f"Piece {target_id} not seen by camera!")
+        return expected_x, expected_y # Fallback to grid
+        
+    # Find the detected coordinate with the smallest distance to expected center
+    best_pose = min(all_poses[target_id], 
+                    key=lambda p: math.hypot(p[0]-expected_x, p[1]-expected_y))
+    
+    return best_pose
 # ===========================================================================
 #  COMMUNICATION
 # ===========================================================================
@@ -352,11 +348,7 @@ def dispose_piece():
     linear_move_to(gx, gy, Z_SAFE)
 
 
-def promote_piece(row: int, col: int, new_piece_id: int):
-    """just remove the pawn to graveyard and wait for human to replace it with the new piece"""
-    debug_print(f"[PROMOTE] Promotion at ({row},{col}) to piece {new_piece_id} — WIP.")
-    pick_up(row, col)
-    dispose_piece()
+
     
 
 # ===========================================================================
@@ -431,27 +423,30 @@ def execute_turn(move_str: str, current_board: np.ndarray):
     """
     p_id, sr, sc, dr, dc, new_p_id = parse_move(move_str)
 
+    all_poses = perception.get_current_poses() 
+    actual_x, actual_y = find_nearest_piece(p_id, sr, sc, all_poses)
+
     is_capture   = (current_board[dr][dc] != 0)
     is_promotion = (new_p_id != p_id)
 
     # --- Step 1: Clear the destination square if capture ---
     if is_capture:
         debug_print(f"[TURN] Capture: removing piece {current_board[dr][dc]} at ({game.idx_to_cell(dr, dc)})")
-        pick_up(dr, dc)
+        pick_up_from_coords(actual_x, actual_y)  # pick up the piece that's actually there
         dispose_piece()
 
     # --- Step 2: Move or promote ---
     if is_promotion:
         debug_print(f"[TURN] Promotion: moving pawn from {game.idx_to_cell(sr, sc)} → {game.idx_to_cell(dr, dc)}, then disposing")
-        promote_piece(sr, sc, new_p_id)
-        go_to_init()
-        debug_print(f"[TURN] Waiting for human to place promoted piece (ID {new_p_id}) on {game.idx_to_cell(dr, dc)}...")
+        pick_up_from_coords(actual_x, actual_y)  # pick up the piece that's actually there
+        dispose_piece()
+
         # input("  Place the promoted piece on the board, then press Enter to continue...")
 
     else:
         # --- Normal move ---
         debug_print(f"[TURN] Moving piece {p_id} from {game.idx_to_cell(sr, sc)} to {game.idx_to_cell(dr, dc)}")
-        pick_up(sr, sc)
+        pick_up_from_coords(actual_x, actual_y)
         place_down(dr, dc)
 
     # --- Step 3: Always reset arm at end of turn ---
