@@ -67,6 +67,7 @@ def pixel_to_world(H, px, py):
 
 
 def world_to_cell(wx, wy):
+   
     best_row, best_col, min_dist = None, None, float('inf')
     for row in range(BOARD_SIZE):
         for col in range(BOARD_SIZE):
@@ -75,6 +76,7 @@ def world_to_cell(wx, wy):
             d  = math.hypot(wx - cx, wy - cy)
             if d < min_dist:
                 min_dist, best_row, best_col = d, row, col
+            
     return best_row, best_col
 
 

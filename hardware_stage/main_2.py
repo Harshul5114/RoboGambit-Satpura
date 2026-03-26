@@ -423,8 +423,9 @@ def execute_turn(move_str: str, current_board: np.ndarray):
     """
     p_id, sr, sc, dr, dc, new_p_id = parse_move(move_str)
 
-    all_poses = perception.get_current_poses() 
+    all_poses = perception.get_piece_poses() # ! to be imported from perception module
     actual_x, actual_y = find_nearest_piece(p_id, sr, sc, all_poses)
+    rx, ry = transform_to_robot(actual_x, actual_y) 
 
     is_capture   = (current_board[dr][dc] != 0)
     is_promotion = (new_p_id != p_id)
@@ -432,13 +433,13 @@ def execute_turn(move_str: str, current_board: np.ndarray):
     # --- Step 1: Clear the destination square if capture ---
     if is_capture:
         debug_print(f"[TURN] Capture: removing piece {current_board[dr][dc]} at ({game.idx_to_cell(dr, dc)})")
-        pick_up_from_coords(actual_x, actual_y)  # pick up the piece that's actually there
+        pick_up_from_coords(rx, ry)  # pick up the piece that's actually there
         dispose_piece()
 
     # --- Step 2: Move or promote ---
     if is_promotion:
         debug_print(f"[TURN] Promotion: moving pawn from {game.idx_to_cell(sr, sc)} → {game.idx_to_cell(dr, dc)}, then disposing")
-        pick_up_from_coords(actual_x, actual_y)  # pick up the piece that's actually there
+        pick_up_from_coords(rx, ry)  # pick up the piece that's actually there
         dispose_piece()
 
         # input("  Place the promoted piece on the board, then press Enter to continue...")
@@ -446,7 +447,7 @@ def execute_turn(move_str: str, current_board: np.ndarray):
     else:
         # --- Normal move ---
         debug_print(f"[TURN] Moving piece {p_id} from {game.idx_to_cell(sr, sc)} to {game.idx_to_cell(dr, dc)}")
-        pick_up_from_coords(actual_x, actual_y)
+        pick_up_from_coords(rx, ry)
         place_down(dr, dc)
 
     # --- Step 3: Always reset arm at end of turn ---
