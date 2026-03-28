@@ -38,9 +38,13 @@ if not TESTING:
 
 # --- Board state ---
 BOARD = np.zeros((6, 6), dtype=int)
-_board_history = deque(maxlen=7)  # tune this window size
 
 
+
+
+# ===========================================================================
+#  CALIBRATION
+# ===========================================================================
 # --- Wrist angle ---
 # CRITICAL: always keep t = π so the electromagnet stays level with the board.
 # Sending t=0 tilts the end-effector and makes pick-up impossible.
@@ -57,7 +61,7 @@ Z_HOVER = 50    # Just above a piece (optional pre-grip pause)
 Z_GRIP  = 18    # Gripper centred on piece
 
 # --- Graveyard ---
-GRAVEYARD = (400, -150)  # (x, y) for captured pieces
+GRAVEYARD = (400, -150)  # * robo coordinates (feedback)
 
 # --- Tuning parameters ---
 STEP_SIZE  = 5.0    # mm between ideal waypoints
@@ -316,6 +320,8 @@ def go_to_init():
     debug_print("Returning to home position...")
     send_cmd('{"T":100}')
 
+    time.sleep(1)  # wait for the arm to reach the home position
+
     debug_print("Folding arm to clear camera view...")
     fold_cmd = (
         f'{{"T":122,"b":0,"s":{FOLD_S},"e":{FOLD_E},'
@@ -399,8 +405,10 @@ def dispose_piece():
 
 def decide_move(board_state: np.ndarray) -> str:
     """Ask the engine for the best move given the current board state."""
-
-    return game.get_best_move(board_state)
+    print("[ENGINE] Deciding move...")
+    move = game.get_best_move(board_state)
+    print(f"Move decided: {move}")
+    return move
 
 
 def parse_move(move_str: str) -> Tuple[int, int, int, int, int, int]:
@@ -442,7 +450,7 @@ def execute_turn(move_str: str, current_board: np.ndarray, all_poses: dict):
     """
     debug_print(f"[TURN] Executing move: {move_str}")
     p_id, sr, sc, dr, dc, new_p_id = parse_move(move_str)
-
+    cap_p_id = current_board[dr][dc]
     asx, asy = find_nearest_piece(p_id, sr, sc, all_poses)
     ads, ady = find_nearest_piece(p_id, dr, dc, all_poses)
     print(f"DEBUG: source piece {p_id} at ({asx:.1f}, {asy:.1f}), dest square at ({ads:.1f}, {ady:.1f})")

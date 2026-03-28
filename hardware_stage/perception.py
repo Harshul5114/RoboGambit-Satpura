@@ -6,8 +6,8 @@ import socket
 import struct
 
 # ── Socket config ─────────────────────────────────────────────────────────────
-SERVER_IP   = '192.168.159.78' #update this to server's IP address
-SERVER_PORT = 9991
+SERVER_IP   = '10.194.7.31' #update this to server's IP address
+SERVER_PORT = 9999
 
 # ── Camera intrinsics ─────────────────────────────────────────────────────────
 CAMERA_MATRIX = np.array([
@@ -220,4 +220,4 @@ def get_stable_board(sock, stability_required=5):
             return current_board, poses
 
         # Optional: brief sleep to prevent CPU spiking
-        cv2.waitKey(1)
+        cv2.waitKey(50)
