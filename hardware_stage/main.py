@@ -13,7 +13,13 @@ from typing import Tuple
 DEBUG = True
 TESTING = True  # * Set to False when running on the actual robot
 
-ser = serial.Serial('COM3', 115200) 
+# Serial port for the arm
+ser = serial.Serial("COM4", baudrate=115200, dsrdtr=None)
+ser.setRTS(False)
+ser.setDTR(False)
+# Serial port for the Solenoid
+ser2 = serial.Serial('COM3', 115200) 
+
 BOARD = np.zeros((6, 6), dtype=int)
 
 #* needs tuning 
@@ -56,24 +62,9 @@ def place():
 
 def send_cmd(command: str):
     """Send the move string to the robot's actuators."""
-    print("TESTING" if TESTING else "SENDING", end=': ')
-    print(command)
-
-    if TESTING: return
-
-    #* not needed ig
-    # parser = argparse.ArgumentParser(description='Http JSON Communication')
-    # args = parser.parse_args()
-
-    ip_addr = "192.168.4.1"
-
-    url = f"http://{ip_addr}/js?json={command}"
-    try:
-        response = requests.get(url, timeout=5)
-        return response.text
-    except Exception as e:
-        print(f"Connection failed: {e}")
-        return None
+     # add code to send move_str to the robot
+    print(f"Sending command: {command}")
+    ser.write(command.encode() + b'\n')
 
 
 # == helper functions ================================================== (added by me, not in the original code)

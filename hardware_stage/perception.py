@@ -6,8 +6,8 @@ import socket
 import struct
 
 # ── Socket config ─────────────────────────────────────────────────────────────
-SERVER_IP   = '10.194.25.130' #update this to server's IP address
-SERVER_PORT = 9999
+SERVER_IP   = '192.168.159.78' #update this to server's IP address
+SERVER_PORT = 9991
 
 # ── Camera intrinsics ─────────────────────────────────────────────────────────
 CAMERA_MATRIX = np.array([
@@ -37,7 +37,9 @@ ROBOT_REALITY = {  # * needs calibration to be accurate, do not use blindly *
     24: (420.1,  180.2), 
 }
 
-H_WORLD_TO_ROBOT, _ = cv2.findHomography(CORNER_WORLD, ROBOT_REALITY)
+world_pts = np.array([CORNER_WORLD[m]  for m in [21, 22, 23, 24]], dtype=np.float32)
+robot_pts = np.array([ROBOT_REALITY[m] for m in [21, 22, 23, 24]], dtype=np.float32)
+H_WORLD_TO_ROBOT, _ = cv2.findHomography(world_pts, robot_pts)
 # ── ArUco setup ───────────────────────────────────────────────────────────────
 aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
 params     = aruco.DetectorParameters()
@@ -148,60 +150,74 @@ def get_piece_poses(ids, corners, H_matrix):
             
     return piece_data
 
-# ── Connect ───────────────────────────────────────────────────────────────────
-print(f"Connecting to {SERVER_IP}:{SERVER_PORT} ...")
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.connect((SERVER_IP, SERVER_PORT))
-print("Connected ✓")
+# Maintain the buffer as a global so it persists between function calls
+data_buffer = b""
+H_matrix = None
+corner_pixels = {}
 
-payload_size = struct.calcsize("Q")
-data_buffer  = b""
+def init_perception():
+    """Initializes the socket connection."""
+    global client_socket
+    print(f"Connecting to {SERVER_IP}:{SERVER_PORT} ...")
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect((SERVER_IP, SERVER_PORT))
+    print("Connected ✓")
+    return client_socket
 
-# ── Main loop ─────────────────────────────────────────────────────────────────
-try:
+def get_stable_board(sock, stability_required=5):
+    """
+    Runs cycles until the board state is identical for 
+    'stability_required' frames in a row.
+    """
+    global data_buffer, H_matrix, corner_pixels
+    
+    stable_count = 0
+    last_board = None
+    payload_size = struct.calcsize("Q")
+
+    print(f"Waiting for stable board (need {stability_required} matching frames)...")
+
     while True:
-        frame, data_buffer = recv_frame(client_socket, data_buffer, payload_size)
+        frame, data_buffer = recv_frame(sock, data_buffer, payload_size)
         if frame is None:
-            print("Stream ended or connection lost.")
-            break
+            return None, None
 
-        frame        = cv2.undistort(frame, CAMERA_MATRIX, DIST_COEFFS, None, CAMERA_MATRIX)
-        gray         = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # 1. Standard processing logic from your original code
+        frame = cv2.undistort(frame, CAMERA_MATRIX, DIST_COEFFS, None, CAMERA_MATRIX)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         corners, ids, _ = detector.detectMarkers(gray)
 
-        board = np.zeros((BOARD_SIZE, BOARD_SIZE), dtype=int)
+        current_board = np.zeros((BOARD_SIZE, BOARD_SIZE), dtype=int)
 
         if ids is not None:
-
-            # Update corner pixels every frame
+            # Update corners
             for i, mid in enumerate(ids.flatten()):
                 if mid in CORNER_WORLD:
                     corner_pixels[mid] = np.mean(corners[i][0], axis=0)
 
-            # Lock homography once all 4 corners seen
+            # Lock homography
             if H_matrix is None and len(corner_pixels) == 4:
                 pixel_pts = np.array([corner_pixels[m] for m in [21, 22, 23, 24]], dtype=np.float32)
                 world_pts = np.array([CORNER_WORLD[m]  for m in [21, 22, 23, 24]], dtype=np.float32)
                 H_matrix, _ = cv2.findHomography(pixel_pts, world_pts)
-                print("Homography locked ✓")
 
-            # Build board state
             if H_matrix is not None:
-                board = build_board(ids, corners, H_matrix)
+                current_board = build_board(ids, corners, H_matrix)
 
-        # Print only when board changes
-        if prev_board is None or not np.array_equal(board, prev_board):
-            print("\nBoard state:\n", board)
-            prev_board = board.copy()
+        # 2. Stability Logic: Check if this board matches the last one
+        if last_board is not None and np.array_equal(current_board, last_board):
+            stable_count += 1
+        else:
+            stable_count = 0 # Reset if board changed or first frame
+        
+        last_board = current_board.copy()
 
-        cv2.imshow("ArUco Detection", frame)
-        if cv2.waitKey(1) & 0xFF == 27:   # ESC to quit
-            break
+        # 3. Return once stable
+        if stable_count >= stability_required:
+            # Also get the exact poses for your precision pickup
+            poses = get_piece_poses(ids, corners, H_matrix)
+            print("Board stable ✓")
+            return current_board, poses
 
-except KeyboardInterrupt:
-    print("\nInterrupted.")
-
-finally:
-    client_socket.close()
-    cv2.destroyAllWindows()
-    print("Disconnected.")
+        # Optional: brief sleep to prevent CPU spiking
+        cv2.waitKey(1)

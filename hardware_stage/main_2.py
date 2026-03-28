@@ -8,6 +8,8 @@ import math
 from collections import deque
 import cv2
 
+import sys
+
 import perception
 from typing import Tuple, Optional
 
@@ -18,9 +20,16 @@ from typing import Tuple, Optional
 DEBUG   = True
 TESTING = True   # Set False when running on real hardware
 
+ARM_COM_PORT = "COM4"  # Adjust for your laptop
+MAGNET_COM_PORT = "COM3"  # Adjust for your laptop
+
 # --- Communication ---
-ser    = serial.Serial('COM3', 115200)   # Serial: electromagnet only
-IP     = "192.168.4.1"                   # HTTP: all arm movement
+# Serial port for the arm
+ser = serial.Serial(ARM_COM_PORT, baudrate=115200, dsrdtr=None, timeout=1)
+ser.setRTS(False)
+ser.setDTR(False)
+# Serial port for the Solenoid
+ser2 = serial.Serial(MAGNET_COM_PORT, 115200)
 
 # --- Board state ---
 BOARD = np.zeros((6, 6), dtype=int)
@@ -35,28 +44,6 @@ EOAT_LEVEL = math.pi  # 3.14159...
 # ===========================================================================
 #  CALIBRATION
 # ===========================================================================
-# Record the arm's T:1051 (x, y) sensor readings for each of the 4 board
-# corners *at Z_GRIP height* and fill them in below.
-#
-# Corner layout (looking down from above):
-#
-#       col 0          col 5
-#  row 0  TL --------- TR
-#         |             |
-#  row 5  BL --------- BR
-#
-# Leave a corner as None until you have its reading — square_to_coords()
-# will fall back to the simple linear formula for any board where corners
-# are incomplete.
-
-CORNER_TL: Optional[Tuple[float, float]] = None  # (x, y) at row=0, col=0
-CORNER_TR: Optional[Tuple[float, float]] = None  # (x, y) at row=0, col=5
-CORNER_BL: Optional[Tuple[float, float]] = None  # (x, y) at row=5, col=0
-CORNER_BR: Optional[Tuple[float, float]] = None  # (x, y) at row=5, col=5
-
-# Simple fallback parameters (used when corners are incomplete)
-BASE_X     = 250
-BASE_Y     = -150
 
 
 # --- Z-Heights ---
@@ -121,47 +108,52 @@ def find_nearest_piece(target_id, start_row, start_col, all_poses):
 #  COMMUNICATION
 # ===========================================================================
 
-def send_cmd(command: str) -> Optional[str]:
-    """
-    Send a JSON command to the arm over HTTP.
-    Returns the response body, or None on failure / in TESTING mode.
-    """
-    if DEBUG:
-        print(f"{'[TEST]' if TESTING else '[SEND]'} {command}")
-    if TESTING:
-        return None
-
-    url = f"http://{IP}/js?json={command}"
-    try:
-        response = requests.get(url, timeout=5)
-        return response.text
-    except Exception as e:
-        print(f"[ERR] HTTP request failed: {e}")
-        return None
-
-
-
+def send_cmd(command: str):
+    """Send command and wait for the robot's feedback."""
+    print(f"Sending command: {command}")
+        
+    ser.write((command + '\n').encode())
+    
 
 
 def get_feedback_full():
     """
-    Request T:1051 and return (x, y, z, s, e).
-    s and e are shoulder and elbow angles (rad) used for wrist levelling.
-    Returns (None, None, None, 0.0, 0.0) on failure or in TESTING mode.
+    Request T:105 via Serial and return (x, y, z, s, e).
+    Uses ser.readline() to capture the JSON response from the arm.
     """
-    response = send_cmd('{"T":105}')
-    if response:
-        try:
-            data = json.loads(response)
-            return (
-                data.get('x'),
-                data.get('y'),
-                data.get('z'),
-                data.get('s', 0.0),
-                data.get('e', 0.0),
-            )
-        except (json.JSONDecodeError, AttributeError):
-            pass
+    # if TESTING:
+    #     return 300.0, 0.0, 120.0, 0.0, 0.0
+
+    try:
+        # 1. Clear the input buffer to ensure we aren't reading an old message
+        ser.reset_input_buffer()
+
+        # 2. Send the request
+        # We use json.dumps to ensure the format is perfect
+        command = json.dumps({"T": 105}) + "\n"
+        ser.write(command.encode())
+
+        # 3. Read the response
+        # ser.readline() waits until a '\n' is received or the timeout is hit
+        line = ser.readline().decode('utf-8').strip()
+
+        if line:
+            # The arm might send info strings; we look for the JSON part
+            if '{' in line and '}' in line:
+                # Clean the line to ensure only JSON is parsed
+                json_str = line[line.find('{'):line.rfind('}')+1]
+                data = json.loads(json_str)
+                
+                return (
+                    data.get('x'),
+                    data.get('y'),
+                    data.get('z'),
+                    data.get('s', 0.0),
+                    data.get('e', 0.0),
+                )
+    except Exception as e:
+        print(f"Serial Feedback Error: {e}")
+        
     return None, None, None, 0.0, 0.0
 
 
@@ -170,7 +162,7 @@ def electromagnet_on():
     if TESTING:
         debug_print("Electromagnet ON (TESTING mode)")
         return
-    ser.write(b'1')
+    ser2.write(b'1')
     debug_print("Electromagnet ON")
 
 
@@ -179,7 +171,7 @@ def electromagnet_off():
     if TESTING:
         debug_print("Electromagnet OFF (TESTING mode)")
         return
-    ser.write(b'0')
+    ser2.write(b'0')
     debug_print("Electromagnet OFF")
 
 
@@ -407,7 +399,7 @@ def parse_move(move_str: str) -> Tuple[int, int, int, int, int, int]:
     return int(piece_id), sr, sc, dr, dc, int(promote_piece_id)
 
 
-def execute_turn(move_str: str, current_board: np.ndarray):
+def execute_turn(move_str: str, current_board: np.ndarray, all_poses: dict):
     """
     Execute one full turn:
         1. Parse the engine's move.
@@ -423,7 +415,6 @@ def execute_turn(move_str: str, current_board: np.ndarray):
     """
     p_id, sr, sc, dr, dc, new_p_id = parse_move(move_str)
 
-    all_poses = perception.get_piece_poses() # ! to be imported from perception module
     actual_x, actual_y = find_nearest_piece(p_id, sr, sc, all_poses)
     rx, ry = transform_to_robot(actual_x, actual_y) 
 
@@ -496,25 +487,45 @@ def calibration_helper():
 
 if __name__ == "__main__":
 
-    # Uncomment once all corners are measured:
-    # calibration_helper()
 
-    go_to_init()
+    # 1. Setup connection once at the start
+    sock = perception.init_perception()
 
-    while True:
-        # 1. Get board state from perception
-        current_board = get_board_state()
+    try:
+        print("--- Robot Game Started ---")
+        while True:
+            # 2. Get the board (blocks until board is stable)
+            # We look at the board *before* the human move to know the current state
+            board, poses = perception.get_stable_board(sock, stability_required=5)
+            
+            if board is not None:
+                print("\n[PERCEPTION] Stable board detected:")
+                print(board)
+                
+                # 3. YOUR TURN: Execute the robot's move
+                move_str = decide_move(board)
+                if move_str:
+                    execute_turn(move_str, board, poses)
+                    print("[ROBOT] Move completed.")
+                
+                print("-" * 30)
+                
+                # 4. WAIT FOR HUMAN: This pauses the loop
+                user_input = input("\n>>> Press ENTER to continue (or 'q' to quit): ").lower()
+                
+                # 5. BREAK CONDITION: Cleanly exit the game
+                if user_input == 'q':
+                    print("[SYSTEM] Quitting game...")
+                    break
+                    
+            else:
+                print("[ERROR] Lost connection to camera. Attempting to reconnect...")
+                time.sleep(1)
 
-        # 2. Ask engine for best move
-        move_str = decide_move()
-        if move_str is None:
-            debug_print("No move returned — game may be over.")
-            break
+    except KeyboardInterrupt:
+        print("\n[SYSTEM] Manual stop detected.")
 
-        debug_print(f"Engine move: {move_str}")
-
-        # 3. Execute the physical move
-        execute_turn(move_str, current_board)
-
-        # Optional: wait for opponent / camera to settle before next perception read
-        # time.sleep(1.0)
+    finally:
+        # Always close the socket so you don't hang the camera server
+        print("[SYSTEM] Closing connection.")
+        sock.close()
