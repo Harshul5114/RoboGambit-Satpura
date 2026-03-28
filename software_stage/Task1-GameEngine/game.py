@@ -1,29 +1,3 @@
-"""
-RoboGambit 2025-26 — Task 1: Autonomous Game Engine
-Organised by Aries and Robotics Club, IIT Delhi
-
-Board: 6x6 NumPy array
-  - 0  : Empty cell
-  - 1  : White Pawn
-  - 2  : White Knight
-  - 3  : White Bishop
-  - 4  : White Queen
-  - 5  : White King
-  - 6  : Black Pawn
-  - 7  : Black Knight
-  - 8  : Black Bishop
-  - 9  : Black Queen
-  - 10 : Black King
-
-Board coordinates:
-  - Bpttom-left  = A1  (index [0][0])
-  - Columns   = A-F (left to right)
-  - Rows      = 6-1 (top to bottom)(from white's perspective)
-
-Move output format:  "<piece_id>:<source_cell>-><target_cell>"
-  e.g.  "1:B3->B4"   (White Pawn moves from B3 to B4)
-"""
-
 import numpy as np
 from typing import Optional
 import sys 
@@ -32,10 +6,18 @@ from utils import *
 from constants import *
 from moves import *
 
-sys.setrecursionlimit(10**5)
+# sys.setrecursionlimit(10**5)
 
 import cProfile
 import pstats
+
+
+###############
+DEPTH = 4 
+#############
+
+
+
 
 
 
@@ -436,7 +418,7 @@ def _get_best_move(board: np.ndarray, playing_white: bool = True, white_captured
     all_moves.sort(key=lambda move: score_move(bb, move), reverse=True)
 
     is_endgame = Bitboards.popcount(bb.all_occ()) <= 8
-    search_depth = 9 if is_endgame else 7   # * idk
+    search_depth = DEPTH + 2 if is_endgame else DEPTH   # * idk
     
     for move in all_moves:
         piece, sr, sc, dr, dc, new_piece = move

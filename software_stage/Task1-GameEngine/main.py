@@ -32,4 +32,4 @@ start_board = np.array(
     ]
 )
 
-run_auto_play(start_board)
+run_ui(start_board)
