@@ -1,0 +1,260 @@
+[1] Test Magnet (COM3)
+[2] Calibrate 4 Corners (Capture Robot X,Y,Z)
+[3] Test Perception (Socket)
+[4] Test Your linear_move_to (COM4)
+[5] Exit
+Select Test: 4
+Testing your linear_move_to logic...
+Moving to 300, 200 at height 120
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":97.34402425,"y":201.7974699,"z":114.2077822,"b":1.121339956,"s":-0.242368964,"e":2.261087681,"t":1.084524417,"torB":64,"torS":44,"torE":104,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+Serial Feedback: {"T":1051,"x":97.34402425,"y":201.7974699,"z":114.2077822,"b":1.121339956,"s":-0.242368964,"e":2.261087681,"t":1.084524417,"torB":64,"torS":44,"torE":104,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+[DEBUG] [LIN] (97.3,201.8,114.2) → (300.0,200.0,120.0) | 202.7mm / 41 steps
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":97.34402425,"y":201.7974699,"z":114.2077822,"b":1.121339956,"s":-0.242368964,"e":2.261087681,"t":1.084524417,"torB":64,"torS":44,"torE":104,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1211}
+Serial Feedback: {"T":1051,"x":97.34402425,"y":201.7974699,"z":114.2077822,"b":1.121339956,"s":-0.242368964,"e":2.261087681,"t":1.084524417,"torB":64,"torS":44,"torE":104,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1211}
+[DEBUG] [LIN] step 1/41: ideal=(102.3,201.8,114.3) actual=(97.3,201.8,114.2) err=4.9mm t=-2.019
+Sending command: {"T":1041,"x":105.253,"y":201.727,"z":114.434,"t":-2.01872}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":97.34402425,"y":201.7974699,"z":114.2077822,"b":1.121339956,"s":-0.242368964,"e":2.261087681,"t":1.084524417,"torB":40,"torS":0,"torE":76,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+Serial Feedback: {"T":1051,"x":97.34402425,"y":201.7974699,"z":114.2077822,"b":1.121339956,"s":-0.242368964,"e":2.261087681,"t":1.084524417,"torB":40,"torS":0,"torE":76,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+[DEBUG] [LIN] step 2/41: ideal=(107.2,201.7,114.5) actual=(97.3,201.8,114.2) err=9.9mm t=-2.019
+Sending command: {"T":1041,"x":113.161,"y":201.657,"z":114.660,"t":-2.01872}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":98.31412408,"y":203.8085198,"z":109.7174357,"b":1.121339956,"s":-0.222427214,"e":2.261087681,"t":1.084524417,"torB":-88,"torS":-20,"torE":60,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":98.31412408,"y":203.8085198,"z":109.7174357,"b":1.121339956,"s":-0.222427214,"e":2.261087681,"t":1.084524417,"torB":-88,"torS":-20,"torE":60,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 3/41: WARNING large tracking error 14.9mm
+Sending command: {"T":1041,"x":120.488,"y":200.380,"z":117.580,"t":-2.03866}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":103.3279097,"y":203.7186258,"z":105.1834589,"b":1.101398206,"s":-0.202485464,"e":2.261087681,"t":1.084524417,"torB":-116,"torS":32,"torE":120,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":103.3279097,"y":203.7186258,"z":105.1834589,"b":1.101398206,"s":-0.202485464,"e":2.261087681,"t":1.084524417,"torB":-116,"torS":32,"torE":120,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 4/41: WARNING large tracking error 16.9mm
+Sending command: {"T":1041,"x":125.388,"y":200.364,"z":120.527,"t":-2.05860}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":113.4624414,"y":201.0075686,"z":105.7197735,"b":1.056912763,"s":-0.193281579,"e":2.250349816,"t":1.084524417,"torB":-104,"torS":40,"torE":144,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+Serial Feedback: {"T":1051,"x":113.4624414,"y":201.0075686,"z":105.7197735,"b":1.056912763,"s":-0.193281579,"e":2.250349816,"t":1.084524417,"torB":-104,"torS":40,"torE":144,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+[DEBUG] [LIN] step 5/41: WARNING large tracking error 12.6mm
+Sending command: {"T":1041,"x":127.216,"y":201.921,"z":120.431,"t":-2.05707}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":119.1672207,"y":200.2088874,"z":109.164825,"b":1.033903051,"s":-0.191747598,"e":2.235010008,"t":1.084524417,"torB":-64,"torS":20,"torE":128,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1209}
+Serial Feedback: {"T":1051,"x":119.1672207,"y":200.2088874,"z":109.164825,"b":1.033903051,"s":-0.191747598,"e":2.235010008,"t":1.084524417,"torB":-64,"torS":20,"torE":128,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1209}
+[DEBUG] [LIN] step 6/41: ideal=(127.0,201.5,115.1) actual=(119.2,200.2,109.2) err=9.9mm t=-2.043
+Sending command: {"T":1041,"x":131.701,"y":202.330,"z":118.590,"t":-2.04326}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":122.4206106,"y":201.4331455,"z":108.9580222,"b":1.024699166,"s":-0.179475752,"e":2.224272142,"t":1.084524417,"torB":-80,"torS":0,"torE":116,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":122.4206106,"y":201.4331455,"z":108.9580222,"b":1.024699166,"s":-0.179475752,"e":2.224272142,"t":1.084524417,"torB":-80,"torS":0,"torE":116,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 7/41: WARNING large tracking error 11.4mm
+Sending command: {"T":1041,"x":137.658,"y":201.525,"z":118.940,"t":-2.04480}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":127.4603934,"y":201.9667274,"z":105.3808474,"b":1.007825378,"s":-0.158000021,"e":2.218136219,"t":1.084524417,"torB":-88,"torS":40,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+Serial Feedback: {"T":1051,"x":127.4603934,"y":201.9667274,"z":105.3808474,"b":1.007825378,"s":-0.158000021,"e":2.218136219,"t":1.084524417,"torB":-88,"torS":40,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+[DEBUG] [LIN] step 8/41: WARNING large tracking error 13.7mm
+Sending command: {"T":1041,"x":142.542,"y":201.135,"z":121.312,"t":-2.06014}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":131.5878562,"y":201.5878835,"z":106.928214,"b":0.99248557,"s":-0.153398079,"e":2.207398354,"t":1.084524417,"torB":-80,"torS":28,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+Serial Feedback: {"T":1051,"x":131.5878562,"y":201.5878835,"z":106.928214,"b":0.99248557,"s":-0.153398079,"e":2.207398354,"t":1.084524417,"torB":-80,"torS":28,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+[DEBUG] [LIN] step 9/41: WARNING large tracking error 13.3mm
+Sending command: {"T":1041,"x":147.974,"y":201.292,"z":120.610,"t":-2.05400}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":135.9677267,"y":201.4767241,"z":109.9914735,"b":0.977145762,"s":-0.150330117,"e":2.192058546,"t":1.084524417,"torB":-80,"torS":24,"torE":124,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1213}
+Serial Feedback: {"T":1051,"x":135.9677267,"y":201.4767241,"z":109.9914735,"b":0.977145762,"s":-0.150330117,"e":2.192058546,"t":1.084524417,"torB":-80,"torS":24,"torE":124,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1213}
+[DEBUG] [LIN] step 10/41: WARNING large tracking error 12.2mm
+Sending command: {"T":1041,"x":153.255,"y":201.288,"z":118.998,"t":-2.04173}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":141.2199273,"y":201.8293548,"z":109.2895342,"b":0.960271973,"s":-0.134990309,"e":2.1797867,"t":1.084524417,"torB":-88,"torS":20,"torE":124,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":141.2199273,"y":201.8293548,"z":109.2895342,"b":0.960271973,"s":-0.134990309,"e":2.1797867,"t":1.084524417,"torB":-88,"torS":20,"torE":124,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 11/41: WARNING large tracking error 12.3mm
+Sending command: {"T":1041,"x":158.012,"y":201.007,"z":119.645,"t":-2.04480}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":148.9193261,"y":202.737787,"z":107.3623429,"b":0.937262261,"s":-0.108912636,"e":2.16137893,"t":1.084524417,"torB":-88,"torS":36,"torE":112,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1212}
+Serial Feedback: {"T":1051,"x":148.9193261,"y":202.737787,"z":107.3623429,"b":0.937262261,"s":-0.108912636,"e":2.16137893,"t":1.084524417,"torB":-88,"torS":36,"torE":112,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1212}
+[DEBUG] [LIN] step 12/41: WARNING large tracking error 11.6mm
+Sending command: {"T":1041,"x":161.301,"y":200.392,"z":121.027,"t":-2.05247}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":151.4372971,"y":202.2377529,"z":107.3410373,"b":0.928058377,"s":-0.104310694,"e":2.156776988,"t":1.084524417,"torB":-92,"torS":36,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+Serial Feedback: {"T":1051,"x":151.4372971,"y":202.2377529,"z":107.3410373,"b":0.928058377,"s":-0.104310694,"e":2.156776988,"t":1.084524417,"torB":-92,"torS":36,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+[DEBUG] [LIN] step 13/41: WARNING large tracking error 13.4mm
+Sending command: {"T":1041,"x":167.699,"y":200.621,"z":121.266,"t":-2.05247}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":156.6839367,"y":202.0469075,"z":109.5775468,"b":0.911184588,"s":-0.09664079,"e":2.139903199,"t":1.084524417,"torB":-96,"torS":28,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+Serial Feedback: {"T":1051,"x":156.6839367,"y":202.0469075,"z":109.5775468,"b":0.911184588,"s":-0.09664079,"e":2.139903199,"t":1.084524417,"torB":-96,"torS":28,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+[DEBUG] [LIN] step 14/41: WARNING large tracking error 11.9mm
+Sending command: {"T":1041,"x":172.459,"y":200.666,"z":120.150,"t":-2.04326}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":162.42265,"y":201.6693115,"z":108.6796515,"b":0.892776819,"s":-0.081300982,"e":2.127631353,"t":1.084524417,"torB":-76,"torS":20,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+Serial Feedback: {"T":1051,"x":162.42265,"y":201.6693115,"z":108.6796515,"b":0.892776819,"s":-0.081300982,"e":2.127631353,"t":1.084524417,"torB":-76,"torS":20,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+[DEBUG] [LIN] step 15/41: WARNING large tracking error 11.9mm
+Sending command: {"T":1041,"x":176.925,"y":200.822,"z":120.915,"t":-2.04633}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":166.4382164,"y":202.1723473,"z":108.530777,"b":0.882038953,"s":-0.069029135,"e":2.115359506,"t":1.084524417,"torB":-84,"torS":28,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1209}
+Serial Feedback: {"T":1051,"x":166.4382164,"y":202.1723473,"z":108.530777,"b":0.882038953,"s":-0.069029135,"e":2.115359506,"t":1.084524417,"torB":-84,"torS":28,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1209}
+[DEBUG] [LIN] step 16/41: WARNING large tracking error 12.8mm
+Sending command: {"T":1041,"x":182.424,"y":200.450,"z":121.231,"t":-2.04633}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":170.6849796,"y":202.2215741,"z":108.7520706,"b":0.869767107,"s":-0.05829127,"e":2.10308766,"t":1.084524417,"torB":-88,"torS":20,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+Serial Feedback: {"T":1051,"x":170.6849796,"y":202.2215741,"z":108.7520706,"b":0.869767107,"s":-0.05829127,"e":2.10308766,"t":1.084524417,"torB":-88,"torS":20,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+[DEBUG] [LIN] step 17/41: WARNING large tracking error 13.3mm
+Sending command: {"T":1041,"x":187.784,"y":200.351,"z":121.324,"t":-2.04480}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":175.3243223,"y":202.6203471,"z":109.2988389,"b":0.85749526,"s":-0.046019424,"e":2.087747852,"t":1.084524417,"torB":-80,"torS":24,"torE":124,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+Serial Feedback: {"T":1051,"x":175.3243223,"y":202.6203471,"z":109.2988389,"b":0.85749526,"s":-0.046019424,"e":2.087747852,"t":1.084524417,"torB":-80,"torS":24,"torE":124,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+[DEBUG] [LIN] step 18/41: WARNING large tracking error 13.4mm
+Sending command: {"T":1041,"x":192.909,"y":200.041,"z":121.222,"t":-2.04173}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":182.1707989,"y":202.8628842,"z":108.0714619,"b":0.839087491,"s":-0.024543693,"e":2.069340083,"t":1.084524417,"torB":-88,"torS":32,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":182.1707989,"y":202.8628842,"z":108.0714619,"b":0.839087491,"s":-0.024543693,"e":2.069340083,"t":1.084524417,"torB":-88,"torS":32,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 19/41: WARNING large tracking error 12.8mm
+Sending command: {"T":1041,"x":196.710,"y":199.825,"z":122.184,"t":-2.04480}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":186.2378771,"y":202.3410462,"z":107.4171423,"b":0.826815645,"s":-0.013805827,"e":2.060136198,"t":1.084524417,"torB":-80,"torS":40,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":186.2378771,"y":202.3410462,"z":107.4171423,"b":0.826815645,"s":-0.013805827,"e":2.060136198,"t":1.084524417,"torB":-80,"torS":40,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 20/41: WARNING large tracking error 13.9mm
+Sending command: {"T":1041,"x":202.178,"y":200.068,"z":122.803,"t":-2.04633}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":191.1110707,"y":202.5889582,"z":108.2152072,"b":0.814543798,"s":-0.001533981,"e":2.043262409,"t":1.084524417,"torB":-92,"torS":32,"torE":144,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":191.1110707,"y":202.5889582,"z":108.2152072,"b":0.814543798,"s":-0.001533981,"e":2.043262409,"t":1.084524417,"torB":-92,"torS":32,"torE":144,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 21/41: WARNING large tracking error 13.6mm
+Sending command: {"T":1041,"x":207.163,"y":199.850,"z":122.550,"t":-2.04173}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":195.1165004,"y":203.0578465,"z":108.2155962,"b":0.805339914,"s":0.010737866,"e":2.029456582,"t":1.084524417,"torB":-88,"torS":48,"torE":140,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+Serial Feedback: {"T":1051,"x":195.1165004,"y":203.0578465,"z":108.2155962,"b":0.805339914,"s":0.010737866,"e":2.029456582,"t":1.084524417,"torB":-88,"torS":48,"torE":140,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+[DEBUG] [LIN] step 22/41: WARNING large tracking error 14.4mm
+Sending command: {"T":1041,"x":212.668,"y":199.498,"z":122.776,"t":-2.04019}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":201.3459331,"y":202.5851822,"z":108.4533469,"b":0.788466125,"s":0.026077673,"e":2.011048813,"t":1.084524417,"torB":-92,"torS":28,"torE":144,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":201.3459331,"y":202.5851822,"z":108.4533469,"b":0.788466125,"s":0.026077673,"e":2.011048813,"t":1.084524417,"torB":-92,"torS":28,"torE":144,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 23/41: WARNING large tracking error 13.3mm
+Sending command: {"T":1041,"x":216.839,"y":199.712,"z":122.859,"t":-2.03713}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":206.4696206,"y":202.0824746,"z":108.7577112,"b":0.774660298,"s":0.03834952,"e":1.995709005,"t":1.084524417,"torB":-80,"torS":36,"torE":128,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1209}
+Serial Feedback: {"T":1051,"x":206.4696206,"y":202.0824746,"z":108.7577112,"b":0.774660298,"s":0.03834952,"e":1.995709005,"t":1.084524417,"torB":-80,"torS":36,"torE":128,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1209}
+[DEBUG] [LIN] step 24/41: WARNING large tracking error 13.0mm
+Sending command: {"T":1041,"x":221.673,"y":199.943,"z":122.903,"t":-2.03406}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":210.941896,"y":202.6922143,"z":108.9631849,"b":0.765456413,"s":0.052155347,"e":1.978835216,"t":1.084524417,"torB":-88,"torS":40,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1213}
+Serial Feedback: {"T":1051,"x":210.941896,"y":202.6922143,"z":108.9631849,"b":0.765456413,"s":0.052155347,"e":1.978835216,"t":1.084524417,"torB":-88,"torS":40,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1213}
+[DEBUG] [LIN] step 25/41: WARNING large tracking error 13.4mm
+Sending command: {"T":1041,"x":226.898,"y":199.507,"z":123.005,"t":-2.03099}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":215.8862739,"y":203.0300483,"z":109.5096628,"b":0.754718548,"s":0.065961174,"e":1.960427447,"t":1.084524417,"torB":-96,"torS":32,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1212}
+Serial Feedback: {"T":1051,"x":215.8862739,"y":203.0300483,"z":109.5096628,"b":0.754718548,"s":0.065961174,"e":1.960427447,"t":1.084524417,"torB":-96,"torS":32,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1212}
+[DEBUG] [LIN] step 26/41: WARNING large tracking error 13.2mm
+Sending command: {"T":1041,"x":231.840,"y":199.234,"z":122.904,"t":-2.02639}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":219.9297035,"y":203.6766354,"z":108.3988829,"b":0.747048644,"s":0.081300982,"e":1.94662162,"t":1.084524417,"torB":-96,"torS":44,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":219.9297035,"y":203.6766354,"z":108.3988829,"b":0.747048644,"s":0.081300982,"e":1.94662162,"t":1.084524417,"torB":-96,"torS":44,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 27/41: WARNING large tracking error 14.8mm
+Sending command: {"T":1041,"x":237.323,"y":198.776,"z":123.796,"t":-2.02792}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":223.7604475,"y":204.0585535,"z":109.0125072,"b":0.73937874,"s":0.092038847,"e":1.931281812,"t":1.084524417,"torB":-100,"torS":36,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+Serial Feedback: {"T":1051,"x":223.7604475,"y":204.0585535,"z":109.0125072,"b":0.73937874,"s":0.092038847,"e":1.931281812,"t":1.084524417,"torB":-100,"torS":36,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+[DEBUG] [LIN] step 28/41: WARNING large tracking error 15.5mm
+Sending command: {"T":1041,"x":242.933,"y":198.477,"z":123.654,"t":-2.02332}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":228.7430821,"y":204.1469978,"z":108.5784621,"b":0.728640874,"s":0.107378655,"e":1.914408023,"t":1.084524417,"torB":-108,"torS":44,"torE":148,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":228.7430821,"y":204.1469978,"z":108.5784621,"b":0.728640874,"s":0.107378655,"e":1.914408023,"t":1.084524417,"torB":-108,"torS":44,"torE":148,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 29/41: WARNING large tracking error 15.8mm
+Sending command: {"T":1041,"x":247.852,"y":198.354,"z":124.140,"t":-2.02179}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":236.6458926,"y":203.4998648,"z":107.6325477,"b":0.710233105,"s":0.130388367,"e":1.889864331,"t":1.084524417,"torB":-92,"torS":40,"torE":144,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+Serial Feedback: {"T":1051,"x":236.6458926,"y":203.4998648,"z":107.6325477,"b":0.710233105,"s":0.130388367,"e":1.889864331,"t":1.084524417,"torB":-92,"torS":40,"torE":144,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+[DEBUG] [LIN] step 30/41: WARNING large tracking error 14.4mm
+Sending command: {"T":1041,"x":251.019,"y":198.672,"z":124.934,"t":-2.02025}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":241.784497,"y":204.0780372,"z":108.2227536,"b":0.70102922,"s":0.145728175,"e":1.8683886,"t":1.084524417,"torB":-92,"torS":52,"torE":128,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":241.784497,"y":204.0780372,"z":108.2227536,"b":0.70102922,"s":0.145728175,"e":1.8683886,"t":1.084524417,"torB":-92,"torS":52,"torE":128,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 31/41: WARNING large tracking error 14.1mm
+Sending command: {"T":1041,"x":255.844,"y":198.255,"z":124.806,"t":-2.01412}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":242.7618053,"y":204.9029336,"z":110.0630804,"b":0.70102922,"s":0.147262156,"e":1.859184715,"t":1.084524417,"torB":-112,"torS":36,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":242.7618053,"y":204.9029336,"z":110.0630804,"b":0.70102922,"s":0.147262156,"e":1.859184715,"t":1.084524417,"torB":-112,"torS":36,"torE":136,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 32/41: WARNING large tracking error 16.1mm
+Sending command: {"T":1041,"x":263.166,"y":197.690,"z":123.928,"t":-2.00645}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":247.0438006,"y":205.2932606,"z":109.9293092,"b":0.693359316,"s":0.161067983,"e":1.842310926,"t":1.084524417,"torB":-112,"torS":44,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":247.0438006,"y":205.2932606,"z":109.9293092,"b":0.693359316,"s":0.161067983,"e":1.842310926,"t":1.084524417,"torB":-112,"torS":44,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 33/41: WARNING large tracking error 16.9mm
+Sending command: {"T":1041,"x":268.506,"y":197.385,"z":124.234,"t":-2.00338}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":253.2527977,"y":204.6087961,"z":108.1470862,"b":0.679553489,"s":0.181009733,"e":1.823903157,"t":1.084524417,"torB":-120,"torS":28,"torE":152,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1208}
+Serial Feedback: {"T":1051,"x":253.2527977,"y":204.6087961,"z":108.1470862,"b":0.679553489,"s":0.181009733,"e":1.823903157,"t":1.084524417,"torB":-120,"torS":28,"torE":152,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1208}
+[DEBUG] [LIN] step 34/41: WARNING large tracking error 16.9mm
+Sending command: {"T":1041,"x":272.689,"y":197.726,"z":125.529,"t":-2.00491}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":260.2105441,"y":203.7133317,"z":107.4413753,"b":0.664213681,"s":0.200951483,"e":1.800893445,"t":1.084524417,"torB":-100,"torS":52,"torE":152,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+Serial Feedback: {"T":1051,"x":260.2105441,"y":203.7133317,"z":107.4413753,"b":0.664213681,"s":0.200951483,"e":1.800893445,"t":1.084524417,"torB":-100,"torS":52,"torE":152,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+[DEBUG] [LIN] step 35/41: WARNING large tracking error 15.9mm
+Sending command: {"T":1041,"x":276.423,"y":198.193,"z":126.179,"t":-2.00184}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":265.5023243,"y":204.5912235,"z":108.9708533,"b":0.656543777,"s":0.216291291,"e":1.774815772,"t":1.084524417,"torB":-100,"torS":40,"torE":148,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1215}
+Serial Feedback: {"T":1051,"x":265.5023243,"y":204.5912235,"z":108.9708533,"b":0.656543777,"s":0.216291291,"e":1.774815772,"t":1.084524417,"torB":-100,"torS":40,"torE":148,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1215}
+[DEBUG] [LIN] step 36/41: WARNING large tracking error 14.9mm
+Sending command: {"T":1041,"x":281.156,"y":197.596,"z":125.487,"t":-1.99111}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":268.0145617,"y":205.8726246,"z":109.7910844,"b":0.655009796,"s":0.225495176,"e":1.759475964,"t":1.084524417,"torB":-112,"torS":44,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":268.0145617,"y":205.8726246,"z":109.7910844,"b":0.655009796,"s":0.225495176,"e":1.759475964,"t":1.084524417,"torB":-112,"torS":44,"torE":132,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 37/41: WARNING large tracking error 16.6mm
+Sending command: {"T":1041,"x":287.557,"y":196.757,"z":125.221,"t":-1.98497}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":272.9148973,"y":205.6707126,"z":109.2891933,"b":0.645805912,"s":0.240834984,"e":1.741068194,"t":1.084524417,"torB":-120,"torS":36,"torE":156,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":272.9148973,"y":205.6707126,"z":109.2891933,"b":0.645805912,"s":0.240834984,"e":1.741068194,"t":1.084524417,"torB":-120,"torS":36,"torE":156,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 38/41: WARNING large tracking error 16.9mm
+Sending command: {"T":1041,"x":292.525,"y":196.808,"z":125.748,"t":-1.98190}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":280.2063883,"y":203.8446643,"z":108.3238972,"b":0.628932123,"s":0.260776734,"e":1.718058482,"t":1.084524417,"torB":-100,"torS":44,"torE":144,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":280.2063883,"y":203.8446643,"z":108.3238972,"b":0.628932123,"s":0.260776734,"e":1.718058482,"t":1.084524417,"torB":-100,"torS":44,"torE":144,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 39/41: WARNING large tracking error 15.6mm
+Sending command: {"T":1041,"x":296.059,"y":197.833,"z":126.554,"t":-1.97884}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":286.2039335,"y":204.2061679,"z":108.0601517,"b":0.619728238,"s":0.280718484,"e":1.691980809,"t":1.084524417,"torB":-84,"torS":52,"torE":148,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+Serial Feedback: {"T":1051,"x":286.2039335,"y":204.2061679,"z":108.0601517,"b":0.619728238,"s":0.280718484,"e":1.691980809,"t":1.084524417,"torB":-84,"torS":52,"torE":148,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1214}
+[DEBUG] [LIN] step 40/41: WARNING large tracking error 15.3mm
+Sending command: {"T":1041,"x":300.369,"y":197.546,"z":126.938,"t":-1.97270}
+Requesting feedback T:105...
+Serial: {"T": 105}
+Serial: {"T":1051,"x":289.2123295,"y":206.3526549,"z":109.2562301,"b":0.619728238,"s":0.29299033,"e":1.670505078,"t":1.084524417,"torB":-112,"torS":40,"torE":144,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+Serial Feedback: {"T":1051,"x":289.2123295,"y":206.3526549,"z":109.2562301,"b":0.619728238,"s":0.29299033,"e":1.670505078,"t":1.084524417,"torB":-112,"torS":40,"torE":144,"torH":40,"torswitchB":1,"torswitchS":1,"torswitchE":1,"torswitchH":1,"v":1210}
+[DEBUG] [LIN] step 41/41: WARNING large tracking error 16.5mm
+Sending command: {"T":1041,"x":306.473,"y":196.188,"z":126.446,"t":-1.96350}
+[DEBUG] [LIN] Move complete.

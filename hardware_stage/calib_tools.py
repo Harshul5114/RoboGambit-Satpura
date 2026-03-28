@@ -9,28 +9,30 @@ import main_2
 import perception
 
 # --- PHYSICAL OVERRIDES (Adjusted for Serial) ---
-main_2.TESTING = False 
-# Use the GameMaster's Serial Setup
-ser_arm = serial.Serial("COM4", baudrate=115200, timeout=1) # The Arm
-ser_mag = serial.Serial("COM3", baudrate=115200, timeout=1) # The Magnet
 
-def get_serial_feedback():
-    """YOUR updated feedback logic for Serial."""
-    ser_arm.reset_input_buffer()
-    ser_arm.write(b'{"T":105}\n')
-    line = ser_arm.readline().decode('utf-8').strip()
-    try:
-        data = json.loads(line)
-        return data.get('x'), data.get('y'), data.get('z')
-    except:
-        return None, None, None
+# Use the GameMaster's Serial Setup
+#ser_arm = serial.Serial("COM10", baudrate=115200, timeout=1) # The Arm
+# ser_mag = serial.Serial("COM9", baudrate=115200, timeout=1) # The Magnet
+ser_arm = main_2.ser
+ser_mag = main_2.ser2
+
+SAMPLE_BOARD = np.array(
+    [
+        [0, 0, 0, 0, 0, 0],
+        [0, 1, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0]
+    ]
+)
 
 # --- THE TEST MENU ---
 
 def run_magnet_test():
     print("Testing Magnet on COM3...")
     ser_mag.write(b'1')
-    time.sleep(2)
+    time.sleep(5)
     ser_mag.write(b'0')
     print("Magnet Cycle Complete.")
 
@@ -48,7 +50,7 @@ def run_calibration_test():
     results = {}
     for label, key in points:
         input(f"Move arm to {label} center, touch the board, then press Enter...")
-        x, y, z = get_serial_feedback()
+        x, y, z = main_2.get_serial_feedback()
         if x is not None:
             results[key] = (x, y, z)
             print(f"Stored {key}: X={x}, Y={y}, Z={z}")
@@ -68,14 +70,18 @@ def run_perception_test():
         print("Camera Success! Board detected:")
         print(board)
     sock.close()
-
+def run_sample_board_test():
+    print("Testing Full Logic on Sample Board...")
+    # This uses YOUR functions from main_2.py and perception.py
+    # It simulates the entire process on a known board state
+    main_2.execute_turn("1:B2->C2", SAMPLE_BOARD, {1: [(250, 150)]})  # Simulated piece at (250,150)
 def run_movement_test():
     print("Testing your linear_move_to logic...")
     # This uses YOUR function from main_2.py
     # Moving to a safe center point
-    target_x, target_y = 300, 0
+    target_x, target_y = 300, 200
     print(f"Moving to {target_x}, {target_y} at height 120")
-    main_2.linear_move_to(target_x, target_y, 120, math.pi, steps=30)
+    main_2.linear_move_to(target_x, target_y, 120)
 
 if __name__ == "__main__":
     while True:
@@ -83,11 +89,13 @@ if __name__ == "__main__":
         print("[2] Calibrate 4 Corners (Capture Robot X,Y,Z)")
         print("[3] Test Perception (Socket)")
         print("[4] Test Your linear_move_to (COM4)")
-        print("[5] Exit")
+        print("[5] Execute for Sample Board")
+        print("[6] Exit")
         
         choice = input("Select Test: ")
         if choice == '1': run_magnet_test()
         elif choice == '2': run_calibration_test()
         elif choice == '3': run_perception_test()
         elif choice == '4': run_movement_test()
-        elif choice == '5': break
+        elif choice == '5': run_sample_board_test() 
+        elif choice == '6': break

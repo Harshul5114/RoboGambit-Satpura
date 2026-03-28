@@ -20,16 +20,21 @@ from typing import Tuple, Optional
 DEBUG   = True
 TESTING = True   # Set False when running on real hardware
 
-ARM_COM_PORT = "COM4"  # Adjust for your laptop
-MAGNET_COM_PORT = "COM3"  # Adjust for your laptop
+ARM_COM_PORT = "COM9"  # Adjust for your laptop
+MAGNET_COM_PORT = "COM10"  # Adjust for your laptop
 
 # --- Communication ---
 # Serial port for the arm
-ser = serial.Serial(ARM_COM_PORT, baudrate=115200, dsrdtr=None, timeout=1)
-ser.setRTS(False)
-ser.setDTR(False)
-# Serial port for the Solenoid
-ser2 = serial.Serial(MAGNET_COM_PORT, 115200)
+ser = None
+ser2 = None
+
+if not TESTING:
+    ser = serial.Serial(ARM_COM_PORT, baudrate=115200, dsrdtr=None, timeout=1)
+    ser.setRTS(False)
+    ser.setDTR(False)
+    # Serial port for the Solenoid
+    ser2 = serial.Serial(MAGNET_COM_PORT, 115200)
+
 
 # --- Board state ---
 BOARD = np.zeros((6, 6), dtype=int)
@@ -39,7 +44,7 @@ _board_history = deque(maxlen=7)  # tune this window size
 # --- Wrist angle ---
 # CRITICAL: always keep t = π so the electromagnet stays level with the board.
 # Sending t=0 tilts the end-effector and makes pick-up impossible.
-EOAT_LEVEL = math.pi  # 3.14159...
+EOAT_LEVEL = 0  # 3.14159...
 
 # ===========================================================================
 #  CALIBRATION
@@ -61,7 +66,7 @@ STEP_DELAY = 0.05   # seconds to wait for arm to move before reading feedback
                     # feedback lags behind the command; too long and motion is jerky
 KP         = 0.8    # proportional gain on position error (0.0 = open loop, 1.0 = full correction)
                     # start at 0.5 and increase until tracking is tight without oscillating
-STEP_TOL   = 8.0    # mm — if actual error > this after a step, log a warning
+STEP_TOL   = 10  # mm — if actual error > this after a step, log a warning
                     # (doesn't stop motion — just flags mechanical slip or lag)
 
 
@@ -110,11 +115,29 @@ def find_nearest_piece(target_id, start_row, start_col, all_poses):
 
 def send_cmd(command: str):
     """Send command and wait for the robot's feedback."""
-    print(f"Sending command: {command}")
+
+    debug_print(f"Sending command: {command}")
+    if TESTING:
+        return
         
     ser.write((command + '\n').encode())
     
+def read_serial():
+    while True:
+        line = ser.readline().decode('utf-8').strip()
+        
+        if not line:
+            continue
+        
+        debug_print(f"Serial: {line}")
 
+        # Ignore echo (your own command)
+        if line == '{"T": 105}':
+            continue
+        
+        # Return only actual JSON response
+        if '{' in line and 'x' in line:
+            return line
 
 def get_feedback_full():
     """
@@ -123,6 +146,7 @@ def get_feedback_full():
     """
     # if TESTING:
     #     return 300.0, 0.0, 120.0, 0.0, 0.0
+    debug_print("Requesting feedback T:105...")
 
     try:
         # 1. Clear the input buffer to ensure we aren't reading an old message
@@ -135,7 +159,8 @@ def get_feedback_full():
 
         # 3. Read the response
         # ser.readline() waits until a '\n' is received or the timeout is hit
-        line = ser.readline().decode('utf-8').strip()
+        line = read_serial()  # This will debug_print the line as well
+        debug_print(f"Serial Feedback: {line}")
 
         if line:
             # The arm might send info strings; we look for the JSON part
@@ -152,7 +177,7 @@ def get_feedback_full():
                     data.get('e', 0.0),
                 )
     except Exception as e:
-        print(f"Serial Feedback Error: {e}")
+        debug_print(f"Serial Feedback Error: {e}")
         
     return None, None, None, 0.0, 0.0
 
@@ -202,7 +227,11 @@ def linear_move_to(tx: float, ty: float, tz: float,
     not where we think it is.
     """
     # --- Read actual start position ---
-    sx, sy, sz, s0, e0 = get_feedback_full()
+    if TESTING:
+        debug_print("[LIN] TESTING: no feedback, simulating straight move.")
+        sx, sy, sz, s0, e0 = tx, ty, tz, 0.0, 0.0
+    else:
+        sx, sy, sz, s0, e0 = get_feedback_full()
 
     if sx is None:
         # TESTING mode — no feedback available, simulate a perfect move
@@ -244,7 +273,7 @@ def linear_move_to(tx: float, ty: float, tz: float,
         cz = iz + kp * (iz - az)
 
         # --- Wrist levelling from live joint angles ---
-        t_level = math.pi - (s + e)
+        t_level = math.pi/2 - s + e - EOAT_LEVEL
 
         # --- Log tracking error ---
         err = math.sqrt((ix-ax)**2 + (iy-ay)**2 + (iz-az)**2)
@@ -411,10 +440,12 @@ def execute_turn(move_str: str, current_board: np.ndarray, all_poses: dict):
     for a human to place the promoted piece. The engine has already decided
     the promoted piece ID — we just need the square to be correct.
     """
+    debug_print(f"[TURN] Executing move: {move_str}")
     p_id, sr, sc, dr, dc, new_p_id = parse_move(move_str)
 
     asx, asy = find_nearest_piece(p_id, sr, sc, all_poses)
     ads, ady = find_nearest_piece(p_id, dr, dc, all_poses)
+    print(f"DEBUG: source piece {p_id} at ({asx:.1f}, {asy:.1f}), dest square at ({ads:.1f}, {ady:.1f})")
     rsx, rsy = transform_to_robot(asx, asy) 
     rdx, rdy = transform_to_robot(ads, ady) 
 
@@ -452,7 +483,7 @@ def execute_turn(move_str: str, current_board: np.ndarray, all_poses: dict):
 
 def debug_print(message: str):
     if DEBUG:
-        print(f"[DEBUG] {message}")
+        debug_print(f"[DEBUG] {message}")
 
 
 def calibration_helper():
@@ -469,16 +500,16 @@ def calibration_helper():
         ("BL", 5, 0),
         ("BR", 5, 5),
     ]
-    print("\n=== CALIBRATION HELPER ===")
-    print("Move arm to each corner square at Z_GRIP height, then press Enter.\n")
+    debug_print("\n=== CALIBRATION HELPER ===")
+    debug_print("Move arm to each corner square at Z_GRIP height, then press Enter.\n")
     for name, row, col in corners:
         input(f"  Position arm at corner {name} (row={row}, col={col}), then press Enter...")
         x, y, z, _, _ = get_feedback_full()
         if x is not None:
-            print(f"  CORNER_{name} = ({x:.2f}, {y:.2f})   [z={z:.2f}]")
+            debug_print(f"  CORNER_{name} = ({x:.2f}, {y:.2f})   [z={z:.2f}]")
         else:
-            print(f"  [!] Could not read feedback — is TESTING=False and arm connected?")
-    print("\nPaste the values above into the CORNER_* constants at the top of this file.")
+            debug_print(f"  [!] Could not read feedback — is TESTING=False and arm connected?")
+    debug_print("\nPaste the values above into the CORNER_* constants at the top of this file.")
 
 
 # ===========================================================================
@@ -492,40 +523,40 @@ if __name__ == "__main__":
     sock = perception.init_perception()
 
     try:
-        print("--- Robot Game Started ---")
+        debug_print("--- Robot Game Started ---")
         while True:
             # 2. Get the board (blocks until board is stable)
             # We look at the board *before* the human move to know the current state
             board, poses = perception.get_stable_board(sock, stability_required=5)
             
             if board is not None:
-                print("\n[PERCEPTION] Stable board detected:")
-                print(board)
+                debug_print("\n[PERCEPTION] Stable board detected:")
+                debug_print(board)
                 
                 # 3. YOUR TURN: Execute the robot's move
                 move_str = decide_move(board)
                 if move_str:
                     execute_turn(move_str, board, poses)
-                    print("[ROBOT] Move completed.")
+                    debug_print("[ROBOT] Move completed.")
                 
-                print("-" * 30)
+                debug_print("-" * 30)
                 
                 # 4. WAIT FOR HUMAN: This pauses the loop
                 user_input = input("\n>>> Press ENTER to continue (or 'q' to quit): ").lower()
                 
                 # 5. BREAK CONDITION: Cleanly exit the game
                 if user_input == 'q':
-                    print("[SYSTEM] Quitting game...")
+                    debug_print("[SYSTEM] Quitting game...")
                     break
                     
             else:
-                print("[ERROR] Lost connection to camera. Attempting to reconnect...")
+                debug_print("[ERROR] Lost connection to camera. Attempting to reconnect...")
                 time.sleep(1)
 
     except KeyboardInterrupt:
-        print("\n[SYSTEM] Manual stop detected.")
+        debug_print("\n[SYSTEM] Manual stop detected.")
 
     finally:
         # Always close the socket so you don't hang the camera server
-        print("[SYSTEM] Closing connection.")
+        debug_print("[SYSTEM] Closing connection.")
         sock.close()
