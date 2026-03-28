@@ -8,14 +8,14 @@ import numpy as np
 import main_2 
 import perception
 
-# --- PHYSICAL OVERRIDES (Adjusted for Serial) ---
+# --- PHYSICAL OVERRIDES ---
 main_2.TESTING = False 
-# Use the GameMaster's Serial Setup
-ser_arm = serial.Serial("COM4", baudrate=115200, timeout=1) # The Arm
-ser_mag = serial.Serial("COM3", baudrate=115200, timeout=1) # The Magnet
+# Ports as defined by your GameMaster
+ser_arm = serial.Serial("COM8", baudrate=115200, timeout=1) 
+ser_mag = serial.Serial("COM7", baudrate=115200, timeout=1) 
 
 def get_serial_feedback():
-    """YOUR updated feedback logic for Serial."""
+    """Requests current position (X, Y, Z) via Serial."""
     ser_arm.reset_input_buffer()
     ser_arm.write(b'{"T":105}\n')
     line = ser_arm.readline().decode('utf-8').strip()
@@ -25,19 +25,40 @@ def get_serial_feedback():
     except:
         return None, None, None
 
-# --- THE TEST MENU ---
-
-def run_magnet_test():
-    print("Testing Magnet on COM3...")
-    ser_mag.write(b'1')
-    time.sleep(2)
-    ser_mag.write(b'0')
-    print("Magnet Cycle Complete.")
+def jog_arm():
+    """Moves the arm using WASD (XY) and RF (Z) keys."""
+    step = 5.0 # mm per keypress
+    print("\n--- JOG MODE ACTIVE ---")
+    print("W/S: X +/- | A/D: Y +/- | R/F: Z +/- | ENTER: Save & Next")
+    
+    while True:
+        curr_x, curr_y, curr_z = get_serial_feedback()
+        if curr_x is None:
+            print("Error: Lost connection to arm.")
+            break
+            
+        print(f"\rCurrent Pos: X={curr_x:.1f}, Y={curr_y:.1f}, Z={curr_z:.1f}", end="")
+        
+        key = input(" Move > ").lower()
+        if key == '': break # Enter pressed
+        
+        nx, ny, nz = curr_x, curr_y, curr_z
+        if key == 'w': nx += step
+        elif key == 's': nx -= step
+        elif key == 'a': ny += step
+        elif key == 'd': ny -= step
+        elif key == 'r': nz += step
+        elif key == 'f': nz -= step
+        
+        # Move command using your arm's protocol (T:104 is blocking coordinate move)
+        move_cmd = json.dumps({"T": 104, "x": nx, "y": ny, "z": nz, "t": 3.14}) + "\n"
+        ser_arm.write(move_cmd.encode())
+        time.sleep(0.1) # Small delay for serial processing
 
 def run_calibration_test():
-    print("\n--- SIDE-PLACEMENT CALIBRATION ---")
+    print("\n--- SIDE-PLACEMENT CALIBRATION WITH JOGGING ---")
     print("Point of View: Look at the CAMERA screen.")
-    # We map Row/Col (Camera) to Robot X/Y (Serial)
+    
     points = [
         ("TOP-LEFT (R0,C0)", "TL"),
         ("TOP-RIGHT (R0,C5)", "TR"),
@@ -47,47 +68,43 @@ def run_calibration_test():
     
     results = {}
     for label, key in points:
-        input(f"Move arm to {label} center, touch the board, then press Enter...")
+        print(f"\n[TARGET: {label}]")
+        jog_arm() # This opens the WASD controls
+        
         x, y, z = get_serial_feedback()
         if x is not None:
             results[key] = (x, y, z)
-            print(f"Stored {key}: X={x}, Y={y}, Z={z}")
+            print(f"\nCaptured {key}: X={x}, Y={y}, Z={z}")
         else:
-            print("Error: No serial response from Arm!")
+            print("\nError: Could not read feedback!")
     
-    print("\n--- COPY THESE TO main_2.py ---")
+    print("\n--- FINAL CALIBRATION DATA ---")
+    print("Paste these into your main_2.py constants:")
     for k, v in results.items():
-        print(f"CORNER_{k} = {v[:2]}  # Z={v[2]}")
+        print(f"CORNER_{k} = ({v[0]:.2f}, {v[1]:.2f})  # Z={v[2]:.2f}")
+
+# --- KEEPING YOUR OTHER TESTS ---
+
+def run_magnet_test():
+    print("Testing Magnet on COM7...")
+    ser_mag.write(b'1'); time.sleep(2); ser_mag.write(b'0')
+    print("Magnet Cycle Complete.")
 
 def run_perception_test():
-    print("Testing Camera Connection...")
-    # This calls your exact stable board logic
     sock = perception.init_perception()
-    board, poses = perception.get_stable_board(sock, stability_required=5)
-    if board is not None:
-        print("Camera Success! Board detected:")
-        print(board)
+    board, _ = perception.get_stable_board(sock, stability_required=5)
+    if board is not None: print(board)
     sock.close()
-
-def run_movement_test():
-    print("Testing your linear_move_to logic...")
-    # This uses YOUR function from main_2.py
-    # Moving to a safe center point
-    target_x, target_y = 300, 0
-    print(f"Moving to {target_x}, {target_y} at height 120")
-    main_2.linear_move_to(target_x, target_y, 120, math.pi, steps=30)
 
 if __name__ == "__main__":
     while True:
-        print("\n[1] Test Magnet (COM3)")
-        print("[2] Calibrate 4 Corners (Capture Robot X,Y,Z)")
-        print("[3] Test Perception (Socket)")
-        print("[4] Test Your linear_move_to (COM4)")
-        print("[5] Exit")
+        print("\n[1] Test Magnet (COM7)")
+        print("[2] Calibrate with WASDRF Jogging")
+        print("[3] Test Perception")
+        print("[4] Exit")
         
         choice = input("Select Test: ")
         if choice == '1': run_magnet_test()
         elif choice == '2': run_calibration_test()
         elif choice == '3': run_perception_test()
-        elif choice == '4': run_movement_test()
-        elif choice == '5': break
+        elif choice == '4': break

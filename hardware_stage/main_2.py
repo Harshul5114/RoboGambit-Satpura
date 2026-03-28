@@ -20,8 +20,8 @@ from typing import Tuple, Optional
 DEBUG   = True
 TESTING = True   # Set False when running on real hardware
 
-ARM_COM_PORT = "COM4"  # Adjust for your laptop
-MAGNET_COM_PORT = "COM3"  # Adjust for your laptop
+ARM_COM_PORT = "COM8"  # Adjust for your laptop
+MAGNET_COM_PORT = "COM7"  # Adjust for your laptop
 
 # --- Communication ---
 # Serial port for the arm
