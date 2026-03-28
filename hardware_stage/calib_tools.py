@@ -78,7 +78,7 @@ def run_sample_board_test():
     print("Testing Full Logic on Sample Board...")
     # This uses YOUR functions from main_2.py and perception.py
     # It simulates the entire process on a known board state
-    main_2.execute_turn("1:B2->C2", SAMPLE_BOARD, {1: [(250, 150)]})  # Simulated piece at (250,150)
+    main_2.execute_turn("1:B2->C2", SAMPLE_BOARD, {1: [(200, 150)]})  # Simulated piece at (250,150)
 def run_movement_test():
     print("Testing your linear_move_to logic...")
     # This uses YOUR function from main_2.py
