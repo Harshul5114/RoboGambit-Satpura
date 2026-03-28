@@ -263,7 +263,6 @@ def linear_move_to(tx: float, ty: float, tz: float,
     return True
 
 
-
 # ===========================================================================
 #  HIGH-LEVEL MOTION PRIMITIVES
 # ===========================================================================
@@ -346,33 +345,32 @@ def dispose_piece():
 # ===========================================================================
 #  GAME LOGIC
 # ===========================================================================
-def get_stable_board(n_samples: int = 7, delay_ms: int = 30) -> np.ndarray: #* idk might work nicely
-    """Sample the board multiple times and return majority-vote result."""
-    import time
-    _board_history.clear()
+# def get_stable_board(n_samples: int = 7, delay_ms: int = 30) -> np.ndarray: #* idk might work nicely
+#     """Sample the board multiple times and return majority-vote result."""
+#     _board_history.clear()
     
-    for _ in range(n_samples):
-        _board_history.append(board.copy())  # type: ignore
-        time.sleep(delay_ms / 1000.0)  # wait between samples
+#     for _ in range(n_samples):
+#         _board_history.append(board.copy())  # type: ignore
+#         time.sleep(delay_ms / 1000.0)  # wait between samples
     
-    stacked = np.stack(_board_history, axis=0)  # (n_samples, 6, 6)
-    stable = np.apply_along_axis(
-        lambda x: np.bincount(x, minlength=11).argmax(),
-        axis=0,
-        arr=stacked
-    )
-    return stable.astype(int)
+#     stacked = np.stack(_board_history, axis=0)  # (n_samples, 6, 6)
+#     stable = np.apply_along_axis(
+#         lambda x: np.bincount(x, minlength=11).argmax(),
+#         axis=0,
+#         arr=stacked
+#     )
+#     return stable.astype(int)
 
 
-def get_board_state() -> np.ndarray:
-    """Use the perception module to get the current board state."""
-    global BOARD
-    BOARD = get_stable_board(n_samples=7, delay_ms=30)  # ~210ms total
-    return BOARD
+# def get_board_state() -> np.ndarray:
+#     """Use the perception module to get the current board state."""
+#     global BOARD
+#     BOARD = get_stable_board(n_samples=7, delay_ms=30)  # ~210ms total
+#     return BOARD
 
-def decide_move() -> str:
+def decide_move(board_state: np.ndarray) -> str:
     """Ask the engine for the best move given the current board state."""
-    board_state = get_board_state()
+
     return game.get_best_move(board_state)
 
 
@@ -415,8 +413,10 @@ def execute_turn(move_str: str, current_board: np.ndarray, all_poses: dict):
     """
     p_id, sr, sc, dr, dc, new_p_id = parse_move(move_str)
 
-    actual_x, actual_y = find_nearest_piece(p_id, sr, sc, all_poses)
-    rx, ry = transform_to_robot(actual_x, actual_y) 
+    asx, asy = find_nearest_piece(p_id, sr, sc, all_poses)
+    ads, ady = find_nearest_piece(p_id, dr, dc, all_poses)
+    rsx, rsy = transform_to_robot(asx, asy) 
+    rdx, rdy = transform_to_robot(ads, ady) 
 
     is_capture   = (current_board[dr][dc] != 0)
     is_promotion = (new_p_id != p_id)
@@ -424,13 +424,13 @@ def execute_turn(move_str: str, current_board: np.ndarray, all_poses: dict):
     # --- Step 1: Clear the destination square if capture ---
     if is_capture:
         debug_print(f"[TURN] Capture: removing piece {current_board[dr][dc]} at ({game.idx_to_cell(dr, dc)})")
-        pick_up_from_coords(rx, ry)  # pick up the piece that's actually there
+        pick_up_from_coords(rdx, rdy)  # pick up the piece that's actually there
         dispose_piece()
 
     # --- Step 2: Move or promote ---
     if is_promotion:
         debug_print(f"[TURN] Promotion: moving pawn from {game.idx_to_cell(sr, sc)} → {game.idx_to_cell(dr, dc)}, then disposing")
-        pick_up_from_coords(rx, ry)  # pick up the piece that's actually there
+        pick_up_from_coords(rsx, rsy)  # pick up the piece that's actually there
         dispose_piece()
 
         # input("  Place the promoted piece on the board, then press Enter to continue...")
@@ -438,7 +438,7 @@ def execute_turn(move_str: str, current_board: np.ndarray, all_poses: dict):
     else:
         # --- Normal move ---
         debug_print(f"[TURN] Moving piece {p_id} from {game.idx_to_cell(sr, sc)} to {game.idx_to_cell(dr, dc)}")
-        pick_up_from_coords(rx, ry)
+        pick_up_from_coords(rsx, rsy)
         place_down(dr, dc)
 
     # --- Step 3: Always reset arm at end of turn ---
