@@ -37,9 +37,9 @@ def run_magnet_test():
     print("Magnet Cycle Complete.")
 
 def run_calibration_test():
-    print("\n--- SIDE-PLACEMENT CALIBRATION ---")
+    print("\n--- SIDE-PLACEMENT CALIBRATION WITH JOGGING ---")
     print("Point of View: Look at the CAMERA screen.")
-    # We map Row/Col (Camera) to Robot X/Y (Serial)
+    
     points = [
         ("TOP-LEFT (R0,C0)", "TL"),
         ("TOP-RIGHT (R0,C5)", "TR"),
@@ -53,22 +53,26 @@ def run_calibration_test():
         x, y, z = main_2.get_serial_feedback()
         if x is not None:
             results[key] = (x, y, z)
-            print(f"Stored {key}: X={x}, Y={y}, Z={z}")
+            print(f"\nCaptured {key}: X={x}, Y={y}, Z={z}")
         else:
-            print("Error: No serial response from Arm!")
+            print("\nError: Could not read feedback!")
     
-    print("\n--- COPY THESE TO main_2.py ---")
+    print("\n--- FINAL CALIBRATION DATA ---")
+    print("Paste these into your main_2.py constants:")
     for k, v in results.items():
-        print(f"CORNER_{k} = {v[:2]}  # Z={v[2]}")
+        print(f"CORNER_{k} = ({v[0]:.2f}, {v[1]:.2f})  # Z={v[2]:.2f}")
+
+# --- KEEPING YOUR OTHER TESTS ---
+
+def run_magnet_test():
+    print("Testing Magnet on COM7...")
+    ser_mag.write(b'1'); time.sleep(2); ser_mag.write(b'0')
+    print("Magnet Cycle Complete.")
 
 def run_perception_test():
-    print("Testing Camera Connection...")
-    # This calls your exact stable board logic
     sock = perception.init_perception()
-    board, poses = perception.get_stable_board(sock, stability_required=5)
-    if board is not None:
-        print("Camera Success! Board detected:")
-        print(board)
+    board, _ = perception.get_stable_board(sock, stability_required=5)
+    if board is not None: print(board)
     sock.close()
 def run_sample_board_test():
     print("Testing Full Logic on Sample Board...")
