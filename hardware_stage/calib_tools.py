@@ -5,7 +5,7 @@ import serial
 import numpy as np
 
 # Import YOUR existing logic
-import main_2 
+import main
 import perception
 
 # --- PHYSICAL OVERRIDES (Adjusted for Serial) ---
@@ -13,8 +13,8 @@ import perception
 # Use the GameMaster's Serial Setup
 #ser_arm = serial.Serial("COM10", baudrate=115200, timeout=1) # The Arm
 # ser_mag = serial.Serial("COM9", baudrate=115200, timeout=1) # The Magnet
-ser_arm = main_2.ser
-ser_mag = main_2.ser2
+ser_arm = main.ser
+ser_mag = main.ser2
 
 SAMPLE_BOARD = np.array(
     [
@@ -50,7 +50,7 @@ def run_calibration_test():
     results = {}
     for label, key in points:
         input(f"Move arm to {label} center, touch the board, then press Enter...")
-        x, y, z = main_2.get_serial_feedback()
+        x, y, z = main.get_feedback_full()
         if x is not None:
             results[key] = (x, y, z)
             print(f"\nCaptured {key}: X={x}, Y={y}, Z={z}")
@@ -78,14 +78,14 @@ def run_sample_board_test():
     print("Testing Full Logic on Sample Board...")
     # This uses YOUR functions from main_2.py and perception.py
     # It simulates the entire process on a known board state
-    main_2.execute_turn("1:B2->C2", SAMPLE_BOARD, {1: [(200, 150)]})  # Simulated piece at (250,150)
+    main.execute_turn("1:B2->C2", SAMPLE_BOARD, {1: [(200, 150)]})  # Simulated piece at (250,150)
 def run_movement_test():
     print("Testing your linear_move_to logic...")
     # This uses YOUR function from main_2.py
     # Moving to a safe center point
     target_x, target_y = 300, 200
     print(f"Moving to {target_x}, {target_y} at height 120")
-    main_2.linear_move_to(target_x, target_y, 120)
+    main.linear_move_to(target_x, target_y, 120)
 
 if __name__ == "__main__":
     while True:
