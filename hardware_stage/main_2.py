@@ -248,7 +248,7 @@ def linear_move_to(tx: float, ty: float, tz: float,
     dist = math.sqrt(dx*dx + dy*dy + dz*dz)
 
     if dist < 0.5:
-        debug_print("[LIN] Already at target.")
+        debug_print(f"[LIN] Already at target. ({tx:.1f},{ty:.1f},{tz:.1f})")
         return True
 
     n_steps = max(1, math.ceil(dist / step_size))
@@ -491,7 +491,7 @@ def execute_turn(move_str: str, current_board: np.ndarray, all_poses: dict):
 
 def debug_print(message: str):
     if DEBUG:
-        debug_print(f"[DEBUG] {message}")
+        print(f"[DEBUG] {message}")
 
 
 def calibration_helper():

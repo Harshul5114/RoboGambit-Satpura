@@ -31,10 +31,10 @@ BOARD_SIZE  = 6
 PIECE_IDS   = set(range(1, 11))
 
 ROBOT_REALITY = {  # * needs calibration to be accurate, do not use blindly *
-    21: (245.5,  180.2), 
-    22: (245.5, -180.2), 
-    23: (420.1, -180.2), 
-    24: (420.1,  180.2), 
+    21: (232.5,  232.5), 
+    22: (232.5, -192.5), 
+    23: (-192.5, -192.5), 
+    24: (-192.5,  232.5), 
 }
 
 world_pts = np.array([CORNER_WORLD[m]  for m in [21, 22, 23, 24]], dtype=np.float32)
