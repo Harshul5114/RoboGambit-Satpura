@@ -8,52 +8,33 @@ import numpy as np
 import main_2 
 import perception
 
-# --- PHYSICAL OVERRIDES ---
-main_2.TESTING = False 
-# Ports as defined by your GameMaster
-ser_arm = serial.Serial("COM8", baudrate=115200, timeout=1) 
-ser_mag = serial.Serial("COM7", baudrate=115200, timeout=1) 
+# --- PHYSICAL OVERRIDES (Adjusted for Serial) ---
 
-def get_serial_feedback():
-    """Requests current position (X, Y, Z) via Serial."""
-    ser_arm.reset_input_buffer()
-    ser_arm.write(b'{"T":105}\n')
-    line = ser_arm.readline().decode('utf-8').strip()
-    try:
-        data = json.loads(line)
-        return data.get('x'), data.get('y'), data.get('z')
-    except:
-        return None, None, None
+# Use the GameMaster's Serial Setup
+#ser_arm = serial.Serial("COM10", baudrate=115200, timeout=1) # The Arm
+# ser_mag = serial.Serial("COM9", baudrate=115200, timeout=1) # The Magnet
+ser_arm = main_2.ser
+ser_mag = main_2.ser2
 
-def jog_arm():
-    """Moves the arm using WASD (XY) and RF (Z) keys."""
-    step = 5.0 # mm per keypress
-    print("\n--- JOG MODE ACTIVE ---")
-    print("W/S: X +/- | A/D: Y +/- | R/F: Z +/- | ENTER: Save & Next")
-    
-    while True:
-        curr_x, curr_y, curr_z = get_serial_feedback()
-        if curr_x is None:
-            print("Error: Lost connection to arm.")
-            break
-            
-        print(f"\rCurrent Pos: X={curr_x:.1f}, Y={curr_y:.1f}, Z={curr_z:.1f}", end="")
-        
-        key = input(" Move > ").lower()
-        if key == '': break # Enter pressed
-        
-        nx, ny, nz = curr_x, curr_y, curr_z
-        if key == 'w': nx += step
-        elif key == 's': nx -= step
-        elif key == 'a': ny += step
-        elif key == 'd': ny -= step
-        elif key == 'r': nz += step
-        elif key == 'f': nz -= step
-        
-        # Move command using your arm's protocol (T:104 is blocking coordinate move)
-        move_cmd = json.dumps({"T": 104, "x": nx, "y": ny, "z": nz, "t": 3.14}) + "\n"
-        ser_arm.write(move_cmd.encode())
-        time.sleep(0.1) # Small delay for serial processing
+SAMPLE_BOARD = np.array(
+    [
+        [0, 0, 0, 0, 0, 0],
+        [0, 1, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0]
+    ]
+)
+
+# --- THE TEST MENU ---
+
+def run_magnet_test():
+    print("Testing Magnet on COM3...")
+    ser_mag.write(b'1')
+    time.sleep(5)
+    ser_mag.write(b'0')
+    print("Magnet Cycle Complete.")
 
 def run_calibration_test():
     print("\n--- SIDE-PLACEMENT CALIBRATION WITH JOGGING ---")
@@ -68,10 +49,8 @@ def run_calibration_test():
     
     results = {}
     for label, key in points:
-        print(f"\n[TARGET: {label}]")
-        jog_arm() # This opens the WASD controls
-        
-        x, y, z = get_serial_feedback()
+        input(f"Move arm to {label} center, touch the board, then press Enter...")
+        x, y, z = main_2.get_serial_feedback()
         if x is not None:
             results[key] = (x, y, z)
             print(f"\nCaptured {key}: X={x}, Y={y}, Z={z}")
@@ -95,16 +74,32 @@ def run_perception_test():
     board, _ = perception.get_stable_board(sock, stability_required=5)
     if board is not None: print(board)
     sock.close()
+def run_sample_board_test():
+    print("Testing Full Logic on Sample Board...")
+    # This uses YOUR functions from main_2.py and perception.py
+    # It simulates the entire process on a known board state
+    main_2.execute_turn("1:B2->C2", SAMPLE_BOARD, {1: [(250, 150)]})  # Simulated piece at (250,150)
+def run_movement_test():
+    print("Testing your linear_move_to logic...")
+    # This uses YOUR function from main_2.py
+    # Moving to a safe center point
+    target_x, target_y = 300, 200
+    print(f"Moving to {target_x}, {target_y} at height 120")
+    main_2.linear_move_to(target_x, target_y, 120)
 
 if __name__ == "__main__":
     while True:
-        print("\n[1] Test Magnet (COM7)")
-        print("[2] Calibrate with WASDRF Jogging")
-        print("[3] Test Perception")
-        print("[4] Exit")
+        print("\n[1] Test Magnet (COM3)")
+        print("[2] Calibrate 4 Corners (Capture Robot X,Y,Z)")
+        print("[3] Test Perception (Socket)")
+        print("[4] Test Your linear_move_to (COM4)")
+        print("[5] Execute for Sample Board")
+        print("[6] Exit")
         
         choice = input("Select Test: ")
         if choice == '1': run_magnet_test()
         elif choice == '2': run_calibration_test()
         elif choice == '3': run_perception_test()
-        elif choice == '4': break
+        elif choice == '4': run_movement_test()
+        elif choice == '5': run_sample_board_test() 
+        elif choice == '6': break
