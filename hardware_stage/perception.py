@@ -6,8 +6,8 @@ import socket
 import struct
 
 # ── Socket config ─────────────────────────────────────────────────────────────
-SERVER_IP   = '10.194.7.31' #update this to server's IP address
-SERVER_PORT = 9999
+SERVER_IP   = '10.191.203.117' #update this to server's IP address
+SERVER_PORT = 9998
 
 # ── Camera intrinsics ─────────────────────────────────────────────────────────
 CAMERA_MATRIX = np.array([
@@ -31,10 +31,10 @@ BOARD_SIZE  = 6
 PIECE_IDS   = set(range(1, 11))
 
 ROBOT_REALITY = {  # * needs calibration to be accurate, do not use blindly *
-    21: (232.5,  232.5), 
-    22: (232.5, -192.5), 
-    23: (-192.5, -192.5), 
-    24: (-192.5,  232.5), 
+    21: (473,  177), 
+    22: (481, -114.5), 
+    23: (-196, -150), 
+    24: (-171,  181), 
 }
 
 world_pts = np.array([CORNER_WORLD[m]  for m in [21, 22, 23, 24]], dtype=np.float32)
@@ -178,6 +178,7 @@ def get_stable_board(sock, stability_required=5):
     print(f"Waiting for stable board (need {stability_required} matching frames)...")
 
     while True:
+        print("Capturing frame...")
         frame, data_buffer = recv_frame(sock, data_buffer, payload_size)
         if frame is None:
             return None, None
@@ -217,6 +218,7 @@ def get_stable_board(sock, stability_required=5):
             # Also get the exact poses for your precision pickup
             poses = get_piece_poses(ids, corners, H_matrix)
             print("Board stable ✓")
+            current_board = np.rot90(current_board)
             return current_board, poses
 
         # Optional: brief sleep to prevent CPU spiking

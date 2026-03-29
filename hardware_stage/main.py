@@ -18,10 +18,10 @@ from typing import Tuple, Optional
 # ===========================================================================
 
 DEBUG   = True
-TESTING = True   # Set False when running on real hardware
+TESTING = False  # Set False when running on real hardware
 
-ARM_COM_PORT = "COM9"  # Adjust for your laptop
-MAGNET_COM_PORT = "COM10"  # Adjust for your laptop
+ARM_COM_PORT = "COM11"  # Adjust for your laptop
+MAGNET_COM_PORT = "COM12"  # Adjust for your laptop
 
 # --- Communication ---
 # Serial port for the arm
@@ -56,16 +56,16 @@ EOAT_LEVEL = 0  # 3.14159...
 
 
 # --- Z-Heights ---
-Z_SAFE  = 120   # Cruise height — clears all pieces
-Z_HOVER = 50    # Just above a piece (optional pre-grip pause)
-Z_GRIP  = 18    # Gripper centred on piece
+Z_SAFE  = 100   # Cruise height — clears all pieces
+# Z_HOVER = 50    # Just above a piece (optional pre-grip pause) 
+Z_GRIP  = -50    # Gripper centred on piece
 
 # --- Graveyard ---
 GRAVEYARD = (400, -150)  # * robo coordinates (feedback)
 
 # --- Tuning parameters ---
-STEP_SIZE  = 5.0    # mm between ideal waypoints
-STEP_DELAY = 0.10   # seconds to wait for arm to move before reading feedback
+STEP_SIZE  = 7.0    # mm between ideal waypoints
+STEP_DELAY = 0.08   # seconds to wait for arm to move before reading feedback
                     # this is the single biggest tuning knob — too short and
                     # feedback lags behind the command; too long and motion is jerky
 KP         = 0.6    # proportional gain on position error (0.0 = open loop, 1.0 = full correction)
@@ -145,6 +145,7 @@ def get_feedback_full():
     Request T:105 via Serial and return (x, y, z, s, e).
     Uses ser.readline() to capture the JSON response from the arm.
     """
+    debug_print("Requesting feedback from arm...")
     if TESTING:
         return 300.0, 0.0, 120.0, 0.0, 0.0
 
@@ -257,7 +258,7 @@ def linear_move_to(tx: float, ty: float, tz: float,
         cz = iz + kp * (iz - az)
 
         # Wrist levelling from live joint angles
-        t_level = math.pi/2 - s + e - EOAT_LEVEL
+        t_level = math.pi/2 - s + e  
 
         # Log tracking error (The part I shouldn't have removed!)
         err = math.sqrt((ix-ax)**2 + (iy-ay)**2 + (iz-az)**2)
@@ -282,7 +283,7 @@ def linear_move_to(tx: float, ty: float, tz: float,
         cy = ty + kp * (ty - ay)
         cz = tz + kp * (tz - az)
 
-        t_level = math.pi/2 - s + e - EOAT_LEVEL
+        t_level = math.pi/2 - s + e 
         
         err = math.sqrt((tx-ax)**2 + (ty-ay)**2 + (tz-az)**2)
         debug_print(f"[SETTLE] step {j}/{settle_steps}: target_err={err:.2f}mm position=({ax:.1f},{ay:.1f},{az:.1f})")
@@ -315,7 +316,7 @@ def go_to_init():
     Tune FOLD_S and FOLD_E on the real hardware — these are starting guesses.
     """
     FOLD_S = 0   # degrees: pull shoulder backward (away from board)
-    FOLD_E = 15    # degrees: fold elbow upward (forearm points up)
+    FOLD_E = 160    # degrees: fold elbow upward (forearm points up)
     FOLD_H = 180   # degrees: keep wrist level / neutral
     FOLD_SPD = 10 # deg/s — slow enough to be safe
     FOLD_ACC = 10  # smooth start/stop
@@ -410,7 +411,6 @@ def decide_move(board_state: np.ndarray, playing_white: bool = True) -> str:
     """Ask the engine for the best move given the current board state."""
     print("[ENGINE] Deciding move...")
     move = game.get_best_move(board_state, playing_white)
-    print(f"Move decided: {move}")
     return move
 
 
@@ -546,6 +546,7 @@ if __name__ == "__main__":
                 
                 # 3. YOUR TURN: Execute the robot's move
                 move_str = decide_move(board, playing_white=PLAYING_WHITE)
+                print(f"\n[ROBOT] Executing move: {move_str}")
                 if move_str:
                     execute_turn(move_str, board, poses)
                     debug_print("[ROBOT] Move completed.")
