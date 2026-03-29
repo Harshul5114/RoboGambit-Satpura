@@ -18,7 +18,7 @@ from typing import Tuple, Optional
 # ===========================================================================
 
 DEBUG   = True
-TESTING = False  # Set False when running on real hardware
+TESTING = True  # Set False when running on real hardware
 
 ARM_COM_PORT = "COM11"  # Adjust for your laptop
 MAGNET_COM_PORT = "COM12"  # Adjust for your laptop
@@ -547,9 +547,9 @@ if __name__ == "__main__":
                 # 3. YOUR TURN: Execute the robot's move
                 move_str = decide_move(board, playing_white=PLAYING_WHITE)
                 print(f"\n[ROBOT] Executing move: {move_str}")
-                if move_str:
-                    execute_turn(move_str, board, poses)
-                    debug_print("[ROBOT] Move completed.")
+                # if move_str:
+                #     execute_turn(move_str, board, poses)
+                #     debug_print("[ROBOT] Move completed.")
                 
                 debug_print("-" * 30)
                 

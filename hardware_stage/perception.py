@@ -178,7 +178,7 @@ def get_stable_board(sock, stability_required=5):
     print(f"Waiting for stable board (need {stability_required} matching frames)...")
 
     while True:
-        print("Capturing frame...")
+        # print("Capturing frame...")
         frame, data_buffer = recv_frame(sock, data_buffer, payload_size)
         if frame is None:
             return None, None
@@ -218,7 +218,7 @@ def get_stable_board(sock, stability_required=5):
             # Also get the exact poses for your precision pickup
             poses = get_piece_poses(ids, corners, H_matrix)
             print("Board stable ✓")
-            current_board = np.rot90(current_board)
+            current_board = np.rot90(current_board, k=3)
             return current_board, poses
 
         # Optional: brief sleep to prevent CPU spiking

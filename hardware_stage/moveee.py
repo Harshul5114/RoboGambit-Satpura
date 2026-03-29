@@ -8,9 +8,9 @@ import sys
 from main import ser, ser2, get_feedback_full, send_cmd, EOAT_LEVEL, electromagnet_off, electromagnet_on
 
 # --- CONFIG ---
-STEP = 5.0       # mm to move per tick while holding key
+STEP = 7.0       # mm to move per tick while holding key
 T_STEP = 0.05    # radians to tilt per tick
-FPS = 30         # Speed of the loop
+FPS = 30       # Speed of the loop
  
 # Initialize Pygame
 pygame.init()
