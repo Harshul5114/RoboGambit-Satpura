@@ -181,7 +181,7 @@ def get_stable_board(sock, stability_required=5):
         frame, data_buffer = recv_frame(sock, data_buffer, payload_size)
         if frame is None:
             return None, None
-
+ 
         # 1. Standard processing logic from your original code
         frame = cv2.undistort(frame, CAMERA_MATRIX, DIST_COEFFS, None, CAMERA_MATRIX)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)

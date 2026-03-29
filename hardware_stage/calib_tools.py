@@ -19,9 +19,9 @@ ser_mag = main.ser2
 SAMPLE_BOARD = np.array(
     [
         [0, 0, 0, 0, 0, 0],
-        [0, 1, 0, 0, 0, 0], 
-        [0, 0, 0, 0, 0, 0], 
-        [0, 0, 0, 0, 0, 0], 
+        [0, 0, 0, 1, 0, 0], 
+        [0, 0, 0, 8, 8, 0], 
+        [0, 0, 0, 0, 8, 0], 
         [0, 0, 0, 0, 0, 0], 
         [0, 0, 0, 0, 0, 0]
     ]
@@ -78,14 +78,15 @@ def run_sample_board_test():
     print("Testing Full Logic on Sample Board...")
     # This uses YOUR functions from main_2.py and perception.py
     # It simulates the entire process on a known board state
-    main.execute_turn("1:B2->C2", SAMPLE_BOARD, {1: [(200, 150)]})  # Simulated piece at (250,150)
+    main.execute_turn("1:D2->E3", SAMPLE_BOARD, {1: [(200, 150)]})  # Simulated piece at (250,150)
 def run_movement_test():
     print("Testing your linear_move_to logic...")
     # This uses YOUR function from main_2.py
     # Moving to a safe center point
-    target_x, target_y = 300, 200
-    print(f"Moving to {target_x}, {target_y} at height 120")
-    main.linear_move_to(target_x, target_y, 120)
+    target_x, target_y = 200, 200
+    rx, ry = main.transform_to_robot(target_x, target_y)
+    print(f"Moving to {rx}, {ry} at height {main.Z_SAFE}")
+    main.linear_move_to(rx, ry, main.Z_SAFE)
 
 if __name__ == "__main__":
     while True:

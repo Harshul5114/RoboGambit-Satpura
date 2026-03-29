@@ -65,16 +65,17 @@ GRAVEYARD = (400, -150)  # * robo coordinates (feedback)
 
 # --- Tuning parameters ---
 STEP_SIZE  = 5.0    # mm between ideal waypoints
-STEP_DELAY = 0.15   # seconds to wait for arm to move before reading feedback
+STEP_DELAY = 0.10   # seconds to wait for arm to move before reading feedback
                     # this is the single biggest tuning knob — too short and
                     # feedback lags behind the command; too long and motion is jerky
-KP         = 0.8    # proportional gain on position error (0.0 = open loop, 1.0 = full correction)
+KP         = 0.6    # proportional gain on position error (0.0 = open loop, 1.0 = full correction)
                     # start at 0.5 and increase until tracking is tight without oscillating
 STEP_TOL   = 10  # mm — if actual error > this after a step, log a warning
                     # (doesn't stop motion — just flags mechanical slip or lag)
 
 
 
+PLAYING_WHITE = True  # Set to False if you want to play as Black (go second)
 
 # ===========================================================================
 #  COORDINATE MAPPING
@@ -133,7 +134,7 @@ def read_serial(max_attempts=50):
             continue
         if line == '{"T": 105}':
             continue
-        debug_print(f"Serial: {line}")
+
         if '{' in line and 'x' in line:
             return line
     debug_print("read_serial: no valid response after max attempts")
@@ -144,9 +145,8 @@ def get_feedback_full():
     Request T:105 via Serial and return (x, y, z, s, e).
     Uses ser.readline() to capture the JSON response from the arm.
     """
-    # if TESTING:
-    #     return 300.0, 0.0, 120.0, 0.0, 0.0
-    debug_print("Requesting feedback T:105...")
+    if TESTING:
+        return 300.0, 0.0, 120.0, 0.0, 0.0
 
     try:
         # 1. Clear the input buffer to ensure we aren't reading an old message
@@ -160,7 +160,7 @@ def get_feedback_full():
         # 3. Read the response
         # ser.readline() waits until a '\n' is received or the timeout is hit
         line = read_serial()  # This will debug_print the line as well
-        debug_print(f"Serial Feedback: {line}")
+        # debug_print(f"Serial Feedback: {line}")
 
         if line:
             # The arm might send info strings; we look for the JSON part
@@ -168,6 +168,7 @@ def get_feedback_full():
                 # Clean the line to ensure only JSON is parsed
                 json_str = line[line.find('{'):line.rfind('}')+1]
                 data = json.loads(json_str)
+                
                 
                 return (
                     data.get('x'),
@@ -405,10 +406,10 @@ def dispose_piece():
 #     BOARD = get_stable_board(n_samples=7, delay_ms=30)  # ~210ms total
 #     return BOARD
 
-def decide_move(board_state: np.ndarray) -> str:
+def decide_move(board_state: np.ndarray, playing_white: bool = True) -> str:
     """Ask the engine for the best move given the current board state."""
     print("[ENGINE] Deciding move...")
-    move = game.get_best_move(board_state)
+    move = game.get_best_move(board_state, playing_white)
     print(f"Move decided: {move}")
     return move
 
@@ -470,7 +471,7 @@ def execute_turn(move_str: str, current_board: np.ndarray, all_poses: dict):
 
     # --- Step 2: Move or promote ---
     if is_promotion:
-        debug_print(f"[TURN] Promotion: moving pawn from {game.idx_to_cell(sr, sc)} → {game.idx_to_cell(dr, dc)}, then disposing")
+        debug_print(f"[TURN] Promotion: moving pawn from {game.idx_to_cell(sr, sc)} → graveyard,(dispose)")
         pick_up_from_coords(rsx, rsy)  # pick up the piece that's actually there
         dispose_piece()
 
@@ -544,7 +545,7 @@ if __name__ == "__main__":
                 debug_print(board)
                 
                 # 3. YOUR TURN: Execute the robot's move
-                move_str = decide_move(board)
+                move_str = decide_move(board, playing_white=PLAYING_WHITE)
                 if move_str:
                     execute_turn(move_str, board, poses)
                     debug_print("[ROBOT] Move completed.")

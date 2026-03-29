@@ -13,7 +13,7 @@ import pstats
 
 
 ###############
-DEPTH = 4 
+DEPTH = 6 
 #############
 
 
